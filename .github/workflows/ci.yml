@@ -31,3 +31,11 @@ jobs:
 
       - name: Lint and test
         run: pixi run -e ${{ matrix.environment }} check
+
+      - name: Export Pixi lock for repository update
+        if: matrix.environment == 'py314'
+        run: |
+          echo "LOCK_BEGIN"
+          base64 -w0 pixi.lock
+          echo
+          echo "LOCK_END"
