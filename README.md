@@ -168,24 +168,61 @@ manual-duplex print document.pdf \
 
 ## GUI and GNOME integration
 
-Launch the Zenity interface:
+The normal end-user flow is graphical and intentionally hides CUPS-specific
+details.
+
+Launch the app:
 
 ```bash
 manual-duplex gui
 ```
 
-Install a per-user PDF desktop entry:
+Without a PDF argument, the first window offers two actions:
+
+- **Imprimir un PDF**
+- **Configurar impresora**
+
+The print form is presented in Spanish with practical defaults:
+
+- default CUPS printer first;
+- A4;
+- vertical orientation;
+- one logical page per physical side;
+- normal quality;
+- color;
+- preview disabled.
+
+If the selected printer has never been configured, the app opens the graphical
+first-run setup automatically. It asks for four physical behaviors that software
+cannot safely guess:
+
+1. whether back sides must be printed in normal or reverse sheet order;
+2. whether back-side content requires a 180-degree rotation;
+3. whether the already-printed face goes up or down;
+4. whether the top or bottom edge enters the printer first.
+
+No default calibration is silently assumed. The resulting human instruction is
+saved per printer under `~/.config/manual-duplex/config.json`.
+
+The configuration can later be changed without using the terminal by launching
+the app and choosing **Configurar impresora**.
+
+Install the per-user desktop entry:
 
 ```bash
 manual-duplex install-desktop
 ```
 
-The generated desktop entry uses the absolute installed executable path and the
-standard `%f` local-file field code. It does not misuse `%u` as a Linux
-username placeholder.
+The desktop entry:
 
-After installation, "Manual Duplex" can be selected as an application for PDF
-files in GNOME Files and other freedesktop-compatible environments.
+- registers **Dúplex manual** as a PDF-capable application;
+- uses the standard `%f` local-file field code;
+- exposes a **Configurar impresora** desktop action;
+- never misuses `%u` as a Linux username placeholder.
+
+After installation, a PDF can be opened with **Dúplex manual** from GNOME Files.
+The app then guides the user through the front pass, paper reinsertion and back
+pass using graphical dialogs.
 
 ## Safety properties
 
