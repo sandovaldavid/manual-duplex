@@ -15,8 +15,8 @@ from .models import (
     LayoutSettings,
     Orientation,
     Paper,
-    PrintSettings,
     PrinterProfile,
+    PrintSettings,
     Quality,
 )
 from .ui import Zenity

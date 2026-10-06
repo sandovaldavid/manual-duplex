@@ -5,8 +5,8 @@ from pypdf import PdfWriter
 from manual_duplex.models import (
     BackOrder,
     LayoutSettings,
-    PrintSettings,
     PrinterProfile,
+    PrintSettings,
 )
 from manual_duplex.workflow import print_document
 

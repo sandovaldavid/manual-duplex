@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .cups import CupsClient
 from .errors import ManualDuplexError
-from .models import PrintSettings, PrinterProfile
+from .models import PrinterProfile, PrintSettings
 from .pdf import compose_pdf, split_duplex_passes
 
 

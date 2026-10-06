@@ -1,27 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class Paper(str, Enum):
+class Paper(StrEnum):
     A4 = "a4"
     LETTER = "letter"
     LEGAL = "legal"
     FOLIO = "folio"
 
 
-class Orientation(str, Enum):
+class Orientation(StrEnum):
     PORTRAIT = "portrait"
     LANDSCAPE = "landscape"
 
 
-class BackOrder(str, Enum):
+class BackOrder(StrEnum):
     NORMAL = "normal"
     REVERSE = "reverse"
 
 
-class Quality(str, Enum):
+class Quality(StrEnum):
     NORMAL = "normal"
     DRAFT = "draft"
     HIGH = "high"
