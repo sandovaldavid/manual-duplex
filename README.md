@@ -54,7 +54,7 @@ through the printer so the stack does not drift out of alignment.
 ## Requirements
 
 - Linux with CUPS
-- Python 3.11+
+- Python 3.11 through 3.14
 - `lp`, `lpstat` and `lpoptions`
 - `zenity` only for GUI mode
 - `xdg-open` only for preview mode
@@ -73,15 +73,33 @@ cd manual-duplex
 pipx install .
 ```
 
-For development:
+For development, Pixi is the canonical environment:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-pytest
-ruff check .
+pixi install
+pixi run check
 ```
+
+Useful development tasks:
+
+```bash
+pixi run lint
+pixi run test
+pixi run app
+```
+
+The default Pixi environment uses Python 3.14. CI also validates dedicated
+`py311`, `py313` and `py314` environments:
+
+```bash
+pixi run -e py311 check
+pixi run -e py313 check
+pixi run -e py314 check
+```
+
+Pixi configuration lives in `pyproject.toml`; there is no separate
+`pixi.toml`. The Python package remains independently installable for end
+users, so Pixi is a development concern rather than a runtime requirement.
 
 ## 1. Inspect the printer
 
