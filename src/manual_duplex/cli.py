@@ -9,7 +9,7 @@ from pathlib import Path
 from .config import get_profile, save_profile
 from .cups import CupsClient
 from .desktop import install_desktop_entry
-from .errors import ConfigurationError, ManualDuplexError
+from .errors import CommandError, ConfigurationError, ManualDuplexError
 from .models import (
     BackOrder,
     LayoutSettings,
@@ -69,9 +69,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     gui = subparsers.add_parser(
         "gui",
-        help="Open the Zenity print dialog, optionally for a specific PDF.",
+        help="Open the graphical print workflow, optionally for a specific PDF.",
     )
     gui.add_argument("file", nargs="?", type=Path)
+    gui.add_argument(
+        "--configure",
+        action="store_true",
+        help="Open printer configuration directly.",
+    )
     gui.set_defaults(handler=_cmd_gui)
 
     desktop = subparsers.add_parser(
@@ -218,10 +223,21 @@ def _cmd_gui(args: argparse.Namespace) -> int:
     cups = CupsClient()
     printers = cups.list_printers()
     if not printers:
-        ui.error("Manual Duplex", "No CUPS printers were found.")
+        ui.error("Dúplex manual", "No se encontraron impresoras configuradas en CUPS.")
         return 2
 
-    source = args.file.expanduser().resolve() if args.file else ui.choose_pdf()
+    if args.configure:
+        return _configure_printer_gui(ui, cups, printers)
+
+    source = args.file.expanduser().resolve() if args.file else None
+    if source is None:
+        action = ui.choose_action()
+        if action is None:
+            return 0
+        if action == "configure":
+            return _configure_printer_gui(ui, cups, printers)
+        source = ui.choose_pdf()
+
     if source is None:
         return 0
 
@@ -232,12 +248,11 @@ def _cmd_gui(args: argparse.Namespace) -> int:
     printer = form["printer"]
     profile = get_profile(printer)
     if profile is None:
-        ui.error(
-            "Calibration required",
-            f"No calibration exists for {printer}.\n\n"
-            f"Run:\nmanual-duplex calibrate --printer {printer}",
-        )
-        return 2
+        if not ui.ask_first_configuration(printer):
+            return 0
+        profile = _configure_profile_gui(ui, printer)
+        if profile is None:
+            return 0
 
     settings = PrintSettings(
         layout=LayoutSettings(
@@ -260,16 +275,56 @@ def _cmd_gui(args: argparse.Namespace) -> int:
             confirm_refeed=ui.confirm_refeed,
         )
     except ManualDuplexError as exc:
-        ui.error("Manual Duplex", str(exc))
+        ui.error("Dúplex manual", str(exc))
         return 2
 
     ui.info(
-        "Manual Duplex",
-        f"Printing complete.\nSheets: {result.sheet_count}\n"
-        f"Front job: {result.front_job_id}\n"
-        f"Back job: {result.back_job_id or 'not needed'}",
+        "Dúplex manual",
+        f"Impresión finalizada.\nHojas: {result.sheet_count}\n"
+        f"Trabajo de frentes: {result.front_job_id}\n"
+        f"Trabajo de reversos: {result.back_job_id or 'no fue necesario'}",
     )
     return 0
+
+
+def _configure_printer_gui(
+    ui: Zenity,
+    cups: CupsClient,
+    printers: tuple[str, ...],
+) -> int:
+    printer = ui.choose_printer(printers, cups.default_printer())
+    if printer is None:
+        return 0
+
+    profile = _configure_profile_gui(ui, printer)
+    return 0 if profile is not None else 0
+
+
+def _configure_profile_gui(ui: Zenity, printer: str) -> PrinterProfile | None:
+    while True:
+        try:
+            calibration = ui.calibration_form(printer)
+            if calibration is None:
+                return None
+        except CommandError as exc:
+            ui.error("Configuración de impresora", str(exc))
+            continue
+
+        profile = PrinterProfile(
+            printer=printer,
+            back_order=BackOrder(str(calibration["back_order"])),
+            back_rotation=int(calibration["back_rotation"]),
+            refeed_instruction=str(calibration["refeed_instruction"]),
+        )
+        save_profile(profile)
+        ui.info(
+            "Impresora configurada",
+            f"La configuración de {printer} quedó guardada.\n\n"
+            "Antes de imprimir muchas hojas, haz una prueba corta de 2 hojas. "
+            "Si el reverso queda mal orientado o en otro orden, abre Dúplex manual "
+            "y selecciona “Configurar impresora” para corregirlo.",
+        )
+        return profile
 
 
 def _cmd_install_desktop(_: argparse.Namespace) -> int:

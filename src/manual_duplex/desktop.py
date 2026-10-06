@@ -13,14 +13,19 @@ def desktop_entry_content(executable: Path) -> str:
     escaped = str(executable).replace("\\", "\\\\").replace('"', '\\"')
     return f"""[Desktop Entry]
 Type=Application
-Name=Manual Duplex
-Comment=Print PDF files with a guided manual duplex workflow
+Name=Dúplex manual
+Comment=Imprime archivos PDF a doble cara con una guía paso a paso
 Exec="{escaped}" gui %f
 Icon=printer
 Terminal=false
 MimeType=application/pdf;
 Categories=Utility;Printing;
 StartupNotify=true
+Actions=Configure;
+
+[Desktop Action Configure]
+Name=Configurar impresora
+Exec="{escaped}" gui --configure
 """
 
 
