@@ -4,7 +4,11 @@
 and capability-driven.
 
 - `main` is the stable branch. Make changes through focused branches and PRs.
-- Support Python 3.11+.
+- Support Python 3.11 through 3.14.
+- Pixi is the canonical development environment. Keep its configuration in
+  `pyproject.toml` and use `pixi run lint`, `pixi run test` and
+  `pixi run check` instead of maintaining a separate ad-hoc virtualenv flow.
+- Keep the Python package installable independently of Pixi for end users.
 - Do not hardcode Brother-specific driver options when CUPS can expose them.
 - Treat physical paper order/orientation as calibrated printer behavior, not a
   universal assumption.

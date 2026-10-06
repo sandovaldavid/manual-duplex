@@ -7,7 +7,7 @@ name = "manual-duplex"
 version = "0.1.0"
 description = "Manual duplex printing for CUPS printers without automatic duplex support."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 license = "MIT"
 authors = [
   { name = "David Sandoval" },
@@ -38,3 +38,31 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+manual-duplex = { path = ".", editable = true }
+
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
+
+[tool.pixi.environments]
+default = { features = ["dev", "py314"] }
+py311 = { features = ["dev", "py311"] }
+py313 = { features = ["dev", "py313"] }
+py314 = { features = ["dev", "py314"] }
+
+[tool.pixi.tasks]
+lint = "ruff check ."
+test = "pytest"
+check = "ruff check . && pytest"
+app = "manual-duplex gui"
