@@ -4,9 +4,13 @@ import os
 import shutil
 import subprocess
 import sys
+from importlib import resources
 from pathlib import Path
 
 from .errors import ConfigurationError
+
+_ICON_NAME = "manual-duplex"
+_ICON_RESOURCE = ("assets", "manual-duplex.svg")
 
 
 def desktop_entry_content(executable: Path) -> str:
@@ -16,16 +20,21 @@ Type=Application
 Name=Dúplex manual
 Comment=Imprime archivos PDF a doble cara con una guía paso a paso
 Exec="{escaped}" gui %f
-Icon=printer
+Icon={_ICON_NAME}
 Terminal=false
 MimeType=application/pdf;
 Categories=Utility;Printing;
+Keywords=printer;duplex;pdf;impresión;
 StartupNotify=true
-Actions=Configure;
+Actions=Configure;Help;
 
 [Desktop Action Configure]
 Name=Configurar impresora
 Exec="{escaped}" gui --configure
+
+[Desktop Action Help]
+Name=Ayuda y solución de problemas
+Exec="{escaped}" gui --troubleshoot
 """
 
 
@@ -37,6 +46,9 @@ def install_desktop_entry(
     root = data_home or Path(
         os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")
     )
+
+    _install_icon(root)
+
     applications = root / "applications"
     applications.mkdir(parents=True, exist_ok=True)
     destination = applications / "manual-duplex.desktop"
@@ -50,6 +62,18 @@ def install_desktop_entry(
             capture_output=True,
             text=True,
         )
+    return destination
+
+
+def _install_icon(root: Path) -> Path:
+    icons = root / "icons" / "hicolor" / "scalable" / "apps"
+    icons.mkdir(parents=True, exist_ok=True)
+    destination = icons / f"{_ICON_NAME}.svg"
+
+    icon = resources.files("manual_duplex")
+    for part in _ICON_RESOURCE:
+        icon = icon.joinpath(part)
+    destination.write_text(icon.read_text(encoding="utf-8"), encoding="utf-8")
     return destination
 
 

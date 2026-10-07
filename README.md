@@ -203,12 +203,14 @@ Launch the app:
 manual-duplex gui
 ```
 
-Without a PDF argument, the first window offers two actions:
+Without a PDF argument, the first window offers three actions:
 
 - **Imprimir un PDF**
 - **Configurar impresora**
+- **Ayuda y solución de problemas**
 
-The print form is presented in Spanish with practical defaults:
+The print flow is presented in Spanish and keeps CUPS-specific details out of the
+normal path. It uses practical defaults:
 
 - default CUPS printer first;
 - A4;
@@ -217,6 +219,11 @@ The print form is presented in Spanish with practical defaults:
 - normal quality;
 - color;
 - preview disabled.
+
+Before sending anything to CUPS, the GUI shows a human-readable summary with the
+selected file, printer, paper, orientation, pages per side, quality, color and
+preview choice. The paper-reinsertion dialog is written as a short sequence of
+physical steps and explicitly tells the user not to reorder individual sheets.
 
 Quality choices are capability-driven. Normal is always available; Draft and
 High are shown only when the selected CUPS driver exposes a recognized mapping.
@@ -248,13 +255,18 @@ manual-duplex install-desktop
 The desktop entry:
 
 - registers **Dúplex manual** as a PDF-capable application;
+- installs a dedicated application icon under the user's XDG icon directory;
 - uses the standard `%f` local-file field code;
-- exposes a **Configurar impresora** desktop action;
+- exposes **Configurar impresora** and **Ayuda y solución de problemas** actions;
 - never misuses `%u` as a Linux username placeholder.
 
-After installation, a PDF can be opened with **Dúplex manual** from GNOME Files.
-The app then guides the user through the front pass, paper reinsertion and back
-pass using graphical dialogs.
+After this one-time installation step, the normal end user does not need the
+terminal. The app can be opened from the GNOME application grid, a PDF can be
+opened with **Dúplex manual** from Files, and troubleshooting is available from
+the graphical main menu or the desktop action.
+
+The GUI deliberately remains Zenity-based for this iteration. The goal is a
+clear desktop-first workflow, not a premature GTK/libadwaita rewrite.
 
 ## Safety properties
 

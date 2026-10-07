@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from manual_duplex.errors import CommandError
@@ -6,6 +8,7 @@ from manual_duplex.ui import (
     build_refeed_instruction,
     parse_calibration_form,
     parse_print_form,
+    print_summary_text,
     quality_labels,
 )
 
@@ -15,7 +18,7 @@ def test_print_form_maps_spanish_labels_to_internal_values() -> None:
         (
             "A4",
             "Vertical",
-            "1",
+            "1 página por cara",
             "Normal",
             "Color",
             "No",
@@ -32,6 +35,45 @@ def test_print_form_maps_spanish_labels_to_internal_values() -> None:
         "color": "color",
         "preview": "no",
     }
+
+
+def test_print_form_maps_two_pages_per_side() -> None:
+    result = parse_print_form(
+        (
+            "A4",
+            "Horizontal",
+            "2 páginas por cara",
+            "Normal",
+            "Blanco y negro",
+            "Sí",
+        ),
+        printer="Brother_DCP_T310",
+    )
+
+    assert result["orientation"] == "landscape"
+    assert result["pages_per_side"] == "2"
+    assert result["color"] == "monochrome"
+    assert result["preview"] == "yes"
+
+
+def test_print_summary_is_human_readable() -> None:
+    text = print_summary_text(
+        Path("/tmp/clase.pdf"),
+        "DCP-T310",
+        {
+            "paper": "a4",
+            "orientation": "landscape",
+            "pages_per_side": "2",
+            "quality": "normal",
+            "color": "color",
+            "preview": "yes",
+        },
+    )
+
+    assert "Archivo: clase.pdf" in text
+    assert "Orientación: Horizontal" in text
+    assert "Páginas por cara: 2 páginas por cara" in text
+    assert "Vista previa: Sí" in text
 
 
 def test_quality_labels_only_show_supported_modes() -> None:
