@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from .errors import CommandError
-from .models import Quality
+from .models import PassOrder, Quality
 
 _PRINT_ACTION = "Imprimir un PDF"
 _CONFIGURE_ACTION = "Configurar impresora"
@@ -271,6 +271,40 @@ class Zenity:
             cancel_label="Cancelar",
         )
 
+    def confirm_layout_preview(
+        self,
+        source: Path,
+        printer: str,
+        form: Mapping[str, str],
+        page_count: int,
+        pass_order: PassOrder,
+    ) -> bool:
+        text = (
+            print_summary_text(source, printer, form)
+            + "\n\n"
+            + layout_preview_text(
+                page_count=page_count,
+                pages_per_side=int(form["pages_per_side"]),
+                orientation=form["orientation"],
+                pass_order=pass_order,
+            )
+        )
+        result = self._run(
+            (
+                "zenity",
+                "--text-info",
+                "--title=Vista del plan de impresión",
+                "--font=monospace 11",
+                "--width=760",
+                "--height=620",
+                "--ok-label=Se ve bien, imprimir",
+                "--cancel-label=Volver",
+            ),
+            check=False,
+            input_text=text,
+        )
+        return result.returncode == 0
+
     def preview(self, pdf: Path) -> bool:
         opener = shutil.which("xdg-open")
         if opener is None:
@@ -386,12 +420,14 @@ class Zenity:
         args: Sequence[str],
         *,
         check: bool = True,
+        input_text: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         result = subprocess.run(
             list(args),
             check=False,
             capture_output=True,
             text=True,
+            input=input_text,
         )
         if check and result.returncode != 0:
             detail = result.stderr.strip() or result.stdout.strip() or "error desconocido"
@@ -481,6 +517,121 @@ def print_summary_text(
         f"Color: {_display_label(_COLOR_LABELS, form['color'])}\n"
         f"Vista previa: {_display_label(_PREVIEW_LABELS, form['preview'])}"
     )
+
+
+def layout_preview_text(
+    *,
+    page_count: int,
+    pages_per_side: int,
+    orientation: str,
+    pass_order: PassOrder,
+    max_sheets: int = 3,
+) -> str:
+    if page_count <= 0:
+        raise ValueError("page_count must be greater than zero")
+    if pages_per_side not in (2, 4):
+        raise ValueError("schematic preview supports only 2-up or 4-up")
+    if orientation not in {"portrait", "landscape"}:
+        raise ValueError("orientation must be portrait or landscape")
+    if max_sheets <= 0:
+        raise ValueError("max_sheets must be greater than zero")
+
+    pages_per_sheet = pages_per_side * 2
+    sheet_count = (page_count + pages_per_sheet - 1) // pages_per_sheet
+    first_pass = (
+        "reversos"
+        if pass_order is PassOrder.BACKS_FIRST
+        else "caras delanteras"
+    )
+    second_pass = (
+        "caras delanteras"
+        if pass_order is PassOrder.BACKS_FIRST
+        else "reversos"
+    )
+
+    lines = [
+        "VISTA ESQUEMÁTICA",
+        "No muestra el contenido real del PDF; muestra dónde quedará cada página.",
+        "",
+        f"Total: {page_count} página(s) lógica(s) en {sheet_count} hoja(s) física(s).",
+        f"Primera pasada: {first_pass}.",
+        f"Segunda pasada: {second_pass}.",
+        "",
+    ]
+
+    shown_sheets = min(sheet_count, max_sheets)
+    for sheet_index in range(shown_sheets):
+        first_page = sheet_index * pages_per_sheet + 1
+        front_pages = _page_numbers(first_page, pages_per_side, page_count)
+        back_pages = _page_numbers(
+            first_page + pages_per_side,
+            pages_per_side,
+            page_count,
+        )
+
+        lines.append(f"HOJA {sheet_index + 1}")
+        lines.append("Frente")
+        lines.extend(_side_preview(front_pages, pages_per_side, orientation))
+        lines.append("Reverso")
+        lines.extend(_side_preview(back_pages, pages_per_side, orientation))
+        lines.append("")
+
+    remaining = sheet_count - shown_sheets
+    if remaining:
+        lines.append(
+            f"... y {remaining} hoja(s) más. El mismo patrón continúa hasta el final."
+        )
+
+    lines.append(
+        "Durante la reinserción mantén el bloque completo en el mismo orden; "
+        "no voltees hojas individualmente."
+    )
+    return "\n".join(lines)
+
+
+def _page_numbers(
+    first_page: int,
+    count: int,
+    page_count: int,
+) -> tuple[int | None, ...]:
+    return tuple(
+        page if page <= page_count else None
+        for page in range(first_page, first_page + count)
+    )
+
+
+def _side_preview(
+    pages: Sequence[int | None],
+    pages_per_side: int,
+    orientation: str,
+) -> list[str]:
+    cells = [_preview_cell(page) for page in pages]
+    if pages_per_side == 2 and orientation == "portrait":
+        return [
+            "┌─────────┐",
+            f"│{cells[0]}│",
+            "├─────────┤",
+            f"│{cells[1]}│",
+            "└─────────┘",
+        ]
+    if pages_per_side == 2:
+        return [
+            "┌─────────┬─────────┐",
+            f"│{cells[0]}│{cells[1]}│",
+            "└─────────┴─────────┘",
+        ]
+    return [
+        "┌─────────┬─────────┐",
+        f"│{cells[0]}│{cells[1]}│",
+        "├─────────┼─────────┤",
+        f"│{cells[2]}│{cells[3]}│",
+        "└─────────┴─────────┘",
+    ]
+
+
+def _preview_cell(page: int | None) -> str:
+    value = "vacío" if page is None else str(page)
+    return value.center(9)
 
 
 def _display_label(mapping: Mapping[str, str], value: str) -> str:
