@@ -3,10 +3,11 @@ from pathlib import Path
 import pytest
 
 from manual_duplex.errors import CommandError
-from manual_duplex.models import Quality
+from manual_duplex.models import PassOrder, Quality
 from manual_duplex.ui import (
     build_refeed_instruction,
     parse_calibration_form,
+    layout_preview_text,
     parse_print_form,
     print_summary_text,
     quality_labels,
@@ -138,3 +139,61 @@ def test_build_refeed_instruction_covers_other_orientation() -> None:
         "Coloca el bloque con la cara ya impresa hacia arriba y "
         "el borde inferior entrando primero."
     )
+
+
+def test_two_up_landscape_preview_shows_front_back_and_pass_order() -> None:
+    text = layout_preview_text(
+        page_count=8,
+        pages_per_side=2,
+        orientation="landscape",
+        pass_order=PassOrder.BACKS_FIRST,
+    )
+
+    assert "Primera pasada: reversos." in text
+    assert "Segunda pasada: caras delanteras." in text
+    assert "HOJA 1" in text
+    assert "│    1    │    2    │" in text
+    assert "│    3    │    4    │" in text
+    assert "HOJA 2" in text
+    assert "│    5    │    6    │" in text
+    assert "│    7    │    8    │" in text
+
+
+def test_two_up_portrait_preview_uses_vertical_stack() -> None:
+    text = layout_preview_text(
+        page_count=4,
+        pages_per_side=2,
+        orientation="portrait",
+        pass_order=PassOrder.FRONTS_FIRST,
+    )
+
+    assert "Primera pasada: caras delanteras." in text
+    assert "│    1    │\n├─────────┤\n│    2    │" in text
+
+
+def test_four_up_preview_shows_two_by_two_grid_and_blank_cells() -> None:
+    text = layout_preview_text(
+        page_count=6,
+        pages_per_side=4,
+        orientation="portrait",
+        pass_order=PassOrder.BACKS_FIRST,
+    )
+
+    assert "│    1    │    2    │" in text
+    assert "│    3    │    4    │" in text
+    assert "│    5    │    6    │" in text
+    assert "│  vacío  │  vacío  │" in text
+
+
+def test_layout_preview_limits_long_documents_to_three_sheets() -> None:
+    text = layout_preview_text(
+        page_count=40,
+        pages_per_side=2,
+        orientation="landscape",
+        pass_order=PassOrder.BACKS_FIRST,
+    )
+
+    assert "HOJA 1" in text
+    assert "HOJA 3" in text
+    assert "HOJA 4" not in text
+    assert "... y 7 hoja(s) más." in text
