@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import ConfigurationError
-from .models import BackOrder, PrinterProfile
+from .models import BackOrder, PassOrder, PrinterProfile
 
 _CONFIG_VERSION = 1
 
@@ -43,6 +43,7 @@ def get_profile(printer: str, path: Path | None = None) -> PrinterProfile | None
         return PrinterProfile(
             printer=printer,
             back_order=BackOrder(raw["back_order"]),
+            pass_order=PassOrder(raw.get("pass_order", PassOrder.FRONTS_FIRST.value)),
             back_rotation=int(raw.get("back_rotation", 0)),
             refeed_instruction=str(
                 raw.get(
@@ -60,6 +61,7 @@ def save_profile(profile: PrinterProfile, path: Path | None = None) -> Path:
     data = load_config(config_path)
     data["printers"][profile.printer] = {
         "back_order": profile.back_order.value,
+        "pass_order": profile.pass_order.value,
         "back_rotation": profile.back_rotation,
         "refeed_instruction": profile.refeed_instruction,
     }

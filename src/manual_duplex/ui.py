@@ -35,6 +35,10 @@ _PREVIEW_LABELS = {
     "Sí": "yes",
 }
 
+_PASS_ORDER_LABELS = {
+    "Caras delanteras primero": "fronts_first",
+    "Reversos primero": "backs_first",
+}
 _ORDER_LABELS = {
     "Imprimir reversos desde la última hoja": "reverse",
     "Imprimir reversos en el mismo orden": "normal",
@@ -172,6 +176,8 @@ class Zenity:
                 f"--text=Configura una sola vez cómo se vuelve a colocar el papel en {printer}.\n"
                 "No se adivinarán estos valores: confírmalos con una prueba corta antes de "
                 "imprimir documentos largos.",
+                "--add-combo=Qué caras se imprimen primero",
+                f"--combo-values=Seleccionar...|{'|'.join(_PASS_ORDER_LABELS)}",
                 "--add-combo=Orden de los reversos",
                 f"--combo-values=Seleccionar...|{'|'.join(_ORDER_LABELS)}",
                 "--add-combo=Giro del reverso",
@@ -225,7 +231,7 @@ class Zenity:
             f"{instruction}\n\n"
             "Continúa solo cuando todas las hojas hayan terminado de salir y el bloque "
             "esté colocado nuevamente en la bandeja.",
-            ok_label="Imprimir reversos",
+            ok_label="Continuar impresión",
             cancel_label="Cancelar",
         )
 
@@ -310,19 +316,20 @@ def parse_print_form(
 
 
 def parse_calibration_form(values: Sequence[str]) -> dict[str, str | int]:
-    if len(values) != 4:
+    if len(values) != 5:
         raise CommandError("La ventana devolvió una calibración inesperada.")
 
-    order, rotation, face, edge = values
+    pass_order, order, rotation, face, edge = values
     if "Seleccionar..." in values:
         raise CommandError(
-            "Debes seleccionar las cuatro opciones de configuración de la impresora."
+            "Debes seleccionar las cinco opciones de configuración de la impresora."
         )
 
     try:
         face_value = _FACE_LABELS[face]
         edge_value = _EDGE_LABELS[edge]
         return {
+            "pass_order": _PASS_ORDER_LABELS[pass_order],
             "back_order": _ORDER_LABELS[order],
             "back_rotation": _ROTATION_LABELS[rotation],
             "refeed_instruction": build_refeed_instruction(face_value, edge_value),

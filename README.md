@@ -20,6 +20,7 @@ The MVP deliberately supports:
 - portrait and landscape output;
 - 1 or 2 logical pages per physical side;
 - guided two-pass printing;
+- calibrated front-first or back-first pass order;
 - normal or reverse back-pass ordering;
 - optional 180-degree rotation of back sides;
 - driver capability discovery for paper, quality and monochrome mode;
@@ -116,15 +117,17 @@ The capability command is the source of truth for driver-specific option names.
 
 Before the first real duplex job, perform a small 4-page physical test and note:
 
-1. whether the back pass must run in `normal` or `reverse` sheet order;
-2. whether backs need a 180-degree content rotation;
-3. exactly how the printed stack must be placed back in the input tray.
+1. whether front sides or back sides must be printed first;
+2. whether the back pass must run in `normal` or `reverse` sheet order;
+3. whether backs need a 180-degree content rotation;
+4. exactly how the printed stack must be placed back in the input tray.
 
 Then save that validated behavior:
 
 ```bash
 manual-duplex calibrate \
   --printer Brother_DCP_T310 \
+  --pass-order backs_first \
   --back-order reverse \
   --back-rotation 0 \
   --refeed-instruction \
@@ -137,8 +140,13 @@ The profile is stored under:
 ~/.config/manual-duplex/config.json
 ```
 
-Do not copy the example refeed instruction blindly. The purpose of calibration
-is to record what was physically verified for the actual printer and tray.
+Do not copy the example calibration blindly. The purpose of calibration is to
+record what was physically verified for the actual printer and tray.
+
+Profiles created before pass-order calibration existed remain compatible and
+default to `fronts_first`. If a physical test shows that a printer leaves each
+sheet with the logical back presented as the front, re-run configuration and
+select `backs_first` instead of hardcoding a printer-specific exception.
 
 ## 3. Print
 
@@ -216,13 +224,14 @@ For example, a driver that exposes paper size and color but no recognized
 quality option will show only Normal instead of offering modes that would fail.
 
 If the selected printer has never been configured, the app opens the graphical
-first-run setup automatically. It asks for four physical behaviors that software
+first-run setup automatically. It asks for five physical behaviors that software
 cannot safely guess:
 
-1. whether back sides must be printed in normal or reverse sheet order;
-2. whether back-side content requires a 180-degree rotation;
-3. whether the already-printed face goes up or down;
-4. whether the top or bottom edge enters the printer first.
+1. whether front sides or back sides are printed first;
+2. whether back sides must be printed in normal or reverse sheet order;
+3. whether back-side content requires a 180-degree rotation;
+4. whether the already-printed face goes up or down;
+5. whether the top or bottom edge enters the printer first.
 
 No default calibration is silently assumed. The resulting human instruction is
 saved per printer under `~/.config/manual-duplex/config.json`.
@@ -259,7 +268,7 @@ pass using graphical dialogs.
   for paper reinsertion;
 - never starts the second pass without explicit user confirmation;
 - pads an unmatched sheet with a blank back side;
-- keeps printer-specific refeed behavior in a per-printer profile;
+- keeps pass order and printer-specific refeed behavior in a per-printer profile;
 - fails instead of silently guessing an unsupported requested quality or
   monochrome option;
 - keeps raw driver overrides explicit through `--cups-option KEY=VALUE`.

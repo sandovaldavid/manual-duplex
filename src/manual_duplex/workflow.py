@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .cups import CupsClient
 from .errors import ManualDuplexError
-from .models import PrinterProfile, PrintSettings
+from .models import PassOrder, PrinterProfile, PrintSettings
 from .pdf import compose_pdf, split_duplex_passes
 
 
@@ -83,16 +83,28 @@ def print_document(
             profile.back_rotation,
         )
 
-        front_job_id = cups_client.submit(printer, fronts, options)
-        cups_client.wait_for_job(printer, front_job_id, settings.timeout_seconds)
+        if profile.pass_order is PassOrder.BACKS_FIRST:
+            first_pdf, second_pdf = backs, fronts
+            first_is_front = False
+        else:
+            first_pdf, second_pdf = fronts, backs
+            first_is_front = True
+
+        first_job_id = cups_client.submit(printer, first_pdf, options)
+        cups_client.wait_for_job(printer, first_job_id, settings.timeout_seconds)
 
         if not confirm_refeed(profile.refeed_instruction, plan.sheet_count):
             raise ManualDuplexError(
-                "Second pass cancelled. The front sides were already printed."
+                "Second pass cancelled. The first pass was already printed."
             )
 
-        back_job_id = cups_client.submit(printer, backs, options)
-        cups_client.wait_for_job(printer, back_job_id, settings.timeout_seconds)
+        second_job_id = cups_client.submit(printer, second_pdf, options)
+        cups_client.wait_for_job(printer, second_job_id, settings.timeout_seconds)
+
+        if first_is_front:
+            front_job_id, back_job_id = first_job_id, second_job_id
+        else:
+            back_job_id, front_job_id = first_job_id, second_job_id
 
         return PrintResult(
             physical_sides=plan.physical_sides,

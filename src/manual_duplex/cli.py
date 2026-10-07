@@ -15,6 +15,7 @@ from .models import (
     LayoutSettings,
     Orientation,
     Paper,
+    PassOrder,
     PrinterProfile,
     PrintSettings,
     Quality,
@@ -47,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save the validated paper refeed behavior for one printer.",
     )
     calibrate.add_argument("--printer")
+    calibrate.add_argument("--pass-order", choices=[item.value for item in PassOrder])
     calibrate.add_argument("--back-order", choices=[item.value for item in BackOrder])
     calibrate.add_argument(
         "--back-rotation",
@@ -117,6 +119,7 @@ def _add_print_options(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--monochrome", action="store_true")
     parser.add_argument("--preview", action="store_true")
+    parser.add_argument("--pass-order", choices=[item.value for item in PassOrder])
     parser.add_argument("--back-order", choices=[item.value for item in BackOrder])
     parser.add_argument("--back-rotation", type=int, choices=(0, 180))
     parser.add_argument(
@@ -155,6 +158,14 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
     cups = CupsClient()
     printer = _resolve_printer(cups, args.printer)
 
+    pass_order = args.pass_order
+    if pass_order is None:
+        pass_order = _prompt_choice(
+            "Which sides should print in the first pass",
+            ("fronts_first", "backs_first"),
+            default="fronts_first",
+        )
+
     back_order = args.back_order
     if back_order is None:
         back_order = _prompt_choice(
@@ -186,6 +197,7 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
     profile = PrinterProfile(
         printer=printer,
         back_order=BackOrder(back_order),
+        pass_order=PassOrder(pass_order),
         back_rotation=back_rotation,
         refeed_instruction=instruction,
     )
@@ -199,6 +211,7 @@ def _cmd_print(args: argparse.Namespace) -> int:
     printer = _resolve_printer(cups, args.printer)
     profile = _profile_for_print(
         printer,
+        pass_order=args.pass_order,
         back_order=args.back_order,
         back_rotation=args.back_rotation,
     )
@@ -326,6 +339,7 @@ def _configure_profile_gui(ui: Zenity, printer: str) -> PrinterProfile | None:
         profile = PrinterProfile(
             printer=printer,
             back_order=BackOrder(str(calibration["back_order"])),
+            pass_order=PassOrder(str(calibration["pass_order"])),
             back_rotation=int(calibration["back_rotation"]),
             refeed_instruction=str(calibration["refeed_instruction"]),
         )
@@ -372,6 +386,7 @@ def _resolve_printer(cups: CupsClient, requested: str | None) -> str:
 def _profile_for_print(
     printer: str,
     *,
+    pass_order: str | None,
     back_order: str | None,
     back_rotation: int | None,
 ) -> PrinterProfile:
@@ -383,6 +398,11 @@ def _profile_for_print(
             "`--back-order` for a one-off test."
         )
 
+    resolved_pass_order = (
+        PassOrder(pass_order)
+        if pass_order is not None
+        else (saved.pass_order if saved is not None else PassOrder.FRONTS_FIRST)
+    )
     resolved_order = BackOrder(back_order) if back_order is not None else saved.back_order
     resolved_rotation = (
         back_rotation
@@ -397,6 +417,7 @@ def _profile_for_print(
     return PrinterProfile(
         printer=printer,
         back_order=resolved_order,
+        pass_order=resolved_pass_order,
         back_rotation=resolved_rotation,
         refeed_instruction=instruction,
     )
@@ -434,7 +455,7 @@ def _cli_preview(pdf: Path) -> bool:
 def _cli_confirm_refeed(instruction: str, sheet_count: int) -> bool:
     print(f"First pass complete: {sheet_count} sheet(s).")
     print(instruction)
-    answer = input("Paper reinserted and ready for the back pass? [y/N]: ").strip().lower()
+    answer = input("Paper reinserted and ready for the second pass? [y/N]: ").strip().lower()
     return answer in {"y", "yes"}
 
 

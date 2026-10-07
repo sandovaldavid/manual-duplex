@@ -44,6 +44,7 @@ def test_calibration_form_requires_explicit_choices() -> None:
         parse_calibration_form(
             (
                 "Seleccionar...",
+                "Imprimir reversos desde la última hoja",
                 "Sin giro adicional",
                 "Cara impresa hacia abajo",
                 "Borde superior entra primero",
@@ -54,6 +55,7 @@ def test_calibration_form_requires_explicit_choices() -> None:
 def test_calibration_form_builds_human_refeed_instruction() -> None:
     result = parse_calibration_form(
         (
+            "Reversos primero",
             "Imprimir reversos desde la última hoja",
             "Girar reversos 180°",
             "Cara impresa hacia abajo",
@@ -62,6 +64,7 @@ def test_calibration_form_builds_human_refeed_instruction() -> None:
     )
 
     assert result == {
+        "pass_order": "backs_first",
         "back_order": "reverse",
         "back_rotation": 180,
         "refeed_instruction": (
