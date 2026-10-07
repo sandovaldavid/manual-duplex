@@ -299,8 +299,21 @@ terminal. The app can be opened from the GNOME application grid, a PDF can be
 opened with **Dúplex manual** from Files, and troubleshooting is available from
 the graphical main menu or the desktop action.
 
-The GUI deliberately remains Zenity-based for this iteration. The goal is a
-clear desktop-first workflow, not a premature GTK/libadwaita rewrite.
+The GUI deliberately remains Zenity-based for this iteration. Every Zenity
+dialog receives the packaged `manual-duplex.svg` through Zenity's
+`--window-icon` option, so the application can present its own window icon
+where the desktop environment honors that hint.
+
+This is a best-effort desktop integration rather than a claim that Zenity owns
+the application windows. On GNOME Wayland the shell may still group the running
+dialogs under Zenity instead of Dúplex manual. The desktop entry intentionally
+does not set `StartupWMClass=zenity`, because doing so could incorrectly group
+unrelated Zenity dialogs from other applications.
+
+The goal remains a clear desktop-first workflow without a premature
+GTK/libadwaita rewrite. If physical testing confirms that GNOME still cannot
+associate the running dialogs with Dúplex manual, that becomes concrete evidence
+for a small native application shell rather than further desktop-entry hacks.
 
 ## Safety properties
 
