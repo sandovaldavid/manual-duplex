@@ -1,9 +1,10 @@
 from pathlib import Path
 
+import pytest
 from pypdf import PdfReader, PdfWriter
 
 from manual_duplex.models import BackOrder, LayoutSettings, Orientation, Paper
-from manual_duplex.pdf import compose_pdf, split_duplex_passes
+from manual_duplex.pdf import _slots, compose_pdf, split_duplex_passes
 
 
 def _make_pdf(path: Path, page_count: int, width: float = 300, height: float = 500) -> None:
@@ -15,6 +16,11 @@ def _make_pdf(path: Path, page_count: int, width: float = 300, height: float = 5
 
 def test_default_layout_uses_safe_compact_margin() -> None:
     assert LayoutSettings().margin_pt == 12.0
+
+
+def test_layout_rejects_unsupported_pages_per_side() -> None:
+    with pytest.raises(ValueError, match="1, 2 or 4"):
+        LayoutSettings(pages_per_side=3)
 
 
 def test_compose_one_up_preserves_side_count_and_target_size(tmp_path: Path) -> None:
@@ -70,6 +76,62 @@ def test_compose_two_up_groups_logical_pages_into_physical_sides(tmp_path: Path)
     assert side_count == 3
     assert len(reader.pages) == 3
     assert float(reader.pages[0].mediabox.width) > float(reader.pages[0].mediabox.height)
+
+
+def test_compose_four_up_groups_four_logical_pages_per_physical_side(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    output = tmp_path / "output.pdf"
+    _make_pdf(source, 10)
+
+    side_count = compose_pdf(
+        source,
+        output,
+        LayoutSettings(
+            paper=Paper.A4,
+            orientation=Orientation.PORTRAIT,
+            pages_per_side=4,
+        ),
+    )
+
+    reader = PdfReader(output)
+    assert side_count == 3
+    assert len(reader.pages) == 3
+    assert round(float(reader.pages[0].mediabox.width), 1) == 595.3
+    assert round(float(reader.pages[0].mediabox.height), 1) == 841.9
+
+
+@pytest.mark.parametrize("orientation", (Orientation.PORTRAIT, Orientation.LANDSCAPE))
+def test_four_up_slots_use_row_major_two_by_two_grid(
+    orientation: Orientation,
+) -> None:
+    settings = LayoutSettings(
+        paper=Paper.A4,
+        orientation=orientation,
+        pages_per_side=4,
+    )
+
+    slots = _slots(settings, 4)
+
+    assert len(slots) == 4
+    top_left, top_right, bottom_left, bottom_right = slots
+
+    assert top_left[0] < top_right[0]
+    assert bottom_left[0] < bottom_right[0]
+    assert top_left[1] > bottom_left[1]
+    assert top_right[1] > bottom_right[1]
+    assert top_left[2:] == top_right[2:] == bottom_left[2:] == bottom_right[2:]
+
+
+def test_four_up_partial_side_keeps_remaining_grid_cells_blank() -> None:
+    settings = LayoutSettings(pages_per_side=4)
+
+    slots = _slots(settings, 3)
+
+    assert len(slots) == 3
+    assert slots[0][1] == slots[1][1]
+    assert slots[2][1] < slots[0][1]
 
 
 def test_split_pads_odd_side_count_with_blank_back(tmp_path: Path) -> None:

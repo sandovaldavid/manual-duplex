@@ -56,6 +56,23 @@ def test_print_form_maps_two_pages_per_side() -> None:
     assert result["preview"] == "yes"
 
 
+def test_print_form_maps_four_pages_per_side() -> None:
+    result = parse_print_form(
+        (
+            "A4",
+            "Vertical",
+            "4 páginas por cara (8 por hoja)",
+            "Normal",
+            "Color",
+            "Sí",
+        ),
+        printer="Brother_DCP_T310",
+    )
+
+    assert result["pages_per_side"] == "4"
+    assert result["preview"] == "yes"
+
+
 def test_print_summary_is_human_readable() -> None:
     text = print_summary_text(
         Path("/tmp/clase.pdf"),
@@ -63,7 +80,7 @@ def test_print_summary_is_human_readable() -> None:
         {
             "paper": "a4",
             "orientation": "landscape",
-            "pages_per_side": "2",
+            "pages_per_side": "4",
             "quality": "normal",
             "color": "color",
             "preview": "yes",
@@ -72,7 +89,7 @@ def test_print_summary_is_human_readable() -> None:
 
     assert "Archivo: clase.pdf" in text
     assert "Orientación: Horizontal" in text
-    assert "Páginas por cara: 2 páginas por cara" in text
+    assert "Páginas por cara: 4 páginas por cara (8 por hoja)" in text
     assert "Vista previa: Sí" in text
 
 

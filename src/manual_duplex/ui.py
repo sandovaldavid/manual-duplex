@@ -25,6 +25,7 @@ _ORIENTATION_LABELS = {
 _PAGES_PER_SIDE_LABELS = {
     "1 página por cara": "1",
     "2 páginas por cara": "2",
+    "4 páginas por cara (8 por hoja)": "4",
 }
 _QUALITY_LABELS = {
     "Normal": "normal",

@@ -116,7 +116,7 @@ def _add_print_options(parser: argparse.ArgumentParser) -> None:
         choices=[item.value for item in Orientation],
         default="portrait",
     )
-    parser.add_argument("--pages-per-side", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--pages-per-side", type=int, choices=(1, 2, 4), default=1)
     parser.add_argument(
         "--quality",
         choices=[item.value for item in Quality],

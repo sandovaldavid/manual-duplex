@@ -114,3 +114,35 @@ def test_backs_first_submits_back_pass_before_fronts_for_two_up(tmp_path: Path) 
     assert cups.waited == ["printer-1", "printer-2"]
     assert result.back_job_id == "printer-1"
     assert result.front_job_id == "printer-2"
+
+
+def test_backs_first_four_up_prints_eight_logical_pages_per_sheet(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    _make_pdf(source, 16)
+    cups = FakeCups()
+    confirmations: list[int] = []
+
+    result = print_document(
+        source=source,
+        printer="printer",
+        settings=PrintSettings(layout=LayoutSettings(pages_per_side=4)),
+        profile=PrinterProfile(
+            printer="printer",
+            back_order=BackOrder.REVERSE,
+            pass_order=PassOrder.BACKS_FIRST,
+            refeed_instruction="Reinsert now.",
+        ),
+        cups=cups,  # type: ignore[arg-type]
+        confirm_refeed=lambda instruction, sheets: (
+            confirmations.append(sheets) or instruction == "Reinsert now."
+        ),
+    )
+
+    assert [path.name for path in cups.submitted] == ["backs.pdf", "fronts.pdf"]
+    assert confirmations == [2]
+    assert result.physical_sides == 4
+    assert result.sheet_count == 2
+    assert result.back_job_id == "printer-1"
+    assert result.front_job_id == "printer-2"

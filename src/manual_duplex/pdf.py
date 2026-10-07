@@ -16,8 +16,9 @@ def compose_pdf(
 ) -> int:
     """Normalize source pages into physical printable sides.
 
-    The output PDF already has the requested paper size and orientation. For
-    two-up printing, two logical pages are fitted into each physical side.
+    The output PDF already has the requested paper size and orientation.
+    Multiple logical pages are fitted into each physical side before the
+    document is split into duplex passes.
     """
 
     try:
@@ -115,6 +116,22 @@ def _slots(
 
     if settings.pages_per_side == 1:
         return [(margin, margin, usable_width, usable_height)]
+
+    if settings.pages_per_side == 4:
+        slot_width = (usable_width - gutter) / 2
+        slot_height = (usable_height - gutter) / 2
+        if slot_width <= 0 or slot_height <= 0:
+            raise ManualDuplexError("Gutter leaves no printable area.")
+
+        right_x = margin + slot_width + gutter
+        top_y = margin + slot_height + gutter
+        slots = [
+            (margin, top_y, slot_width, slot_height),
+            (right_x, top_y, slot_width, slot_height),
+            (margin, margin, slot_width, slot_height),
+            (right_x, margin, slot_width, slot_height),
+        ]
+        return slots[:source_page_count]
 
     if settings.orientation.value == "landscape":
         slot_width = (usable_width - gutter) / 2
