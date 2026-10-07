@@ -13,6 +13,10 @@ def _make_pdf(path: Path, page_count: int, width: float = 300, height: float = 5
     writer.write(path)
 
 
+def test_default_layout_uses_safe_compact_margin() -> None:
+    assert LayoutSettings().margin_pt == 12.0
+
+
 def test_compose_one_up_preserves_side_count_and_target_size(tmp_path: Path) -> None:
     source = tmp_path / "source.pdf"
     output = tmp_path / "output.pdf"
@@ -29,6 +33,22 @@ def test_compose_one_up_preserves_side_count_and_target_size(tmp_path: Path) -> 
     assert len(reader.pages) == 3
     assert round(float(reader.pages[0].mediabox.width), 1) == 595.3
     assert round(float(reader.pages[0].mediabox.height), 1) == 841.9
+
+
+def test_landscape_a4_has_expected_physical_side_size(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    output = tmp_path / "output.pdf"
+    _make_pdf(source, 1)
+
+    compose_pdf(
+        source,
+        output,
+        LayoutSettings(paper=Paper.A4, orientation=Orientation.LANDSCAPE),
+    )
+
+    page = PdfReader(output).pages[0]
+    assert round(float(page.mediabox.width), 1) == 841.9
+    assert round(float(page.mediabox.height), 1) == 595.3
 
 
 def test_compose_two_up_groups_logical_pages_into_physical_sides(tmp_path: Path) -> None:

@@ -241,11 +241,14 @@ def _cmd_gui(args: argparse.Namespace) -> int:
     if source is None:
         return 0
 
-    form = ui.print_form(printers, cups.default_printer())
+    printer = _select_gui_printer(ui, cups, printers)
+    if printer is None:
+        return 0
+
+    form = ui.print_form(printer, cups.supported_qualities(printer))
     if form is None:
         return 0
 
-    printer = form["printer"]
     profile = get_profile(printer)
     if profile is None:
         if not ui.ask_first_configuration(printer):
@@ -285,6 +288,16 @@ def _cmd_gui(args: argparse.Namespace) -> int:
         f"Trabajo de reversos: {result.back_job_id or 'no fue necesario'}",
     )
     return 0
+
+
+def _select_gui_printer(
+    ui: Zenity,
+    cups: CupsClient,
+    printers: tuple[str, ...],
+) -> str | None:
+    if len(printers) == 1:
+        return printers[0]
+    return ui.choose_printer(printers, cups.default_printer())
 
 
 def _configure_printer_gui(

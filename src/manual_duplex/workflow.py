@@ -44,6 +44,7 @@ def print_document(
     options = cups_client.build_options(
         printer=printer,
         paper=settings.layout.paper,
+        orientation=settings.layout.orientation,
         quality=settings.quality,
         monochrome=settings.monochrome,
         raw_options=settings.raw_cups_options,

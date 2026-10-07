@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .errors import CommandError
+from .models import Quality
 
 _PRINT_ACTION = "Imprimir un PDF"
 _CONFIGURE_ACTION = "Configurar impresora"
@@ -109,8 +110,8 @@ class Zenity:
             (
                 "zenity",
                 "--list",
-                "--title=Configurar impresora",
-                "--text=Selecciona la impresora que quieres configurar.",
+                "--title=Seleccionar impresora",
+                "--text=Selecciona la impresora.",
                 "--column=Impresora",
                 *ordered,
                 "--height=320",
@@ -125,19 +126,20 @@ class Zenity:
 
     def print_form(
         self,
-        printers: Sequence[str],
-        default_printer: str | None = None,
+        printer: str,
+        qualities: Sequence[Quality],
     ) -> dict[str, str] | None:
-        ordered_printers = _ordered_printers(printers, default_printer)
-        printer_values = "|".join(ordered_printers)
+        quality_values = quality_labels(qualities)
+        if not quality_values:
+            raise CommandError("La impresora no tiene una calidad de impresión utilizable.")
+
         result = self._run(
             (
                 "zenity",
                 "--forms",
                 "--title=Dúplex manual",
-                "--text=Configura la impresión. Los valores habituales ya están seleccionados.",
-                "--add-combo=Impresora",
-                f"--combo-values={printer_values}",
+                f"--text=Impresora: {printer}\n"
+                "Configura la impresión. Los valores habituales ya están seleccionados.",
                 "--add-combo=Tamaño de papel",
                 f"--combo-values={'|'.join(_PAPER_LABELS)}",
                 "--add-combo=Orientación",
@@ -145,7 +147,7 @@ class Zenity:
                 "--add-combo=Páginas por cara",
                 "--combo-values=1|2",
                 "--add-combo=Calidad",
-                f"--combo-values={'|'.join(_QUALITY_LABELS)}",
+                f"--combo-values={'|'.join(quality_values)}",
                 "--add-combo=Color",
                 f"--combo-values={'|'.join(_COLOR_LABELS)}",
                 "--add-combo=Vista previa",
@@ -159,7 +161,7 @@ class Zenity:
             return None
 
         values = result.stdout.rstrip("\n").split("|")
-        return parse_print_form(values)
+        return parse_print_form(values, printer=printer)
 
     def calibration_form(self, printer: str) -> dict[str, str | int] | None:
         result = self._run(
@@ -275,11 +277,24 @@ class Zenity:
         return result
 
 
-def parse_print_form(values: Sequence[str]) -> dict[str, str]:
-    if len(values) != 7:
+def quality_labels(qualities: Sequence[Quality]) -> tuple[str, ...]:
+    supported = set(qualities)
+    return tuple(
+        label
+        for label, value in _QUALITY_LABELS.items()
+        if Quality(value) in supported
+    )
+
+
+def parse_print_form(
+    values: Sequence[str],
+    *,
+    printer: str,
+) -> dict[str, str]:
+    if len(values) != 6:
         raise CommandError("La ventana devolvió una configuración de impresión inesperada.")
 
-    printer, paper, orientation, pages_per_side, quality, color, preview = values
+    paper, orientation, pages_per_side, quality, color, preview = values
     try:
         return {
             "printer": printer,

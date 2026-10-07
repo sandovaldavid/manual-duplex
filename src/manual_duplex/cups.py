@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from .errors import CommandError, ConfigurationError
-from .models import PAPER_CUPS_CANDIDATES, Paper, Quality
+from .models import PAPER_CUPS_CANDIDATES, Orientation, Paper, Quality
 
 _JOB_ID_PATTERN = re.compile(r"request id is ([^\s]+)")
 
@@ -58,10 +58,14 @@ class CupsClient:
         result = self._run(("lpoptions", "-p", printer, "-l"))
         return parse_capabilities(result.stdout)
 
+    def supported_qualities(self, printer: str) -> tuple[Quality, ...]:
+        return supported_qualities(self.capabilities(printer))
+
     def build_options(
         self,
         printer: str,
         paper: Paper,
+        orientation: Orientation,
         quality: Quality,
         monochrome: bool,
         raw_options: Sequence[str] = (),
@@ -71,6 +75,7 @@ class CupsClient:
 
         media_option, media_value = _resolve_media(capabilities, paper)
         options[media_option] = media_value
+        options["orientation-requested"] = _orientation_requested(orientation)
 
         if quality is not Quality.NORMAL:
             quality_option, quality_value = _resolve_quality(capabilities, quality)
@@ -107,6 +112,13 @@ class CupsClient:
                 ("lpstat", "-W", "not-completed", "-o", printer),
                 check=False,
             )
+            if result.returncode != 0:
+                detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+                raise CommandError(
+                    f"Could not query CUPS job state for {job_id}: {detail}. "
+                    "The second pass was not started."
+                )
+
             active_job_ids = {
                 line.split()[0]
                 for line in result.stdout.splitlines()
@@ -147,6 +159,25 @@ class CupsClient:
             detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
             raise CommandError(f"{' '.join(args)} failed: {detail}")
         return result
+
+
+def supported_qualities(
+    capabilities: Mapping[str, Sequence[str]],
+) -> tuple[Quality, ...]:
+    qualities = [Quality.NORMAL]
+    for quality in (Quality.DRAFT, Quality.HIGH):
+        try:
+            _resolve_quality(capabilities, quality)
+        except ConfigurationError:
+            continue
+        qualities.append(quality)
+    return tuple(qualities)
+
+
+def _orientation_requested(orientation: Orientation) -> str:
+    if orientation is Orientation.LANDSCAPE:
+        return "4"
+    return "3"
 
 
 def _resolve_media(

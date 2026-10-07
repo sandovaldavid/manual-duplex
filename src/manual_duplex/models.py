@@ -47,7 +47,7 @@ class LayoutSettings:
     paper: Paper = Paper.A4
     orientation: Orientation = Orientation.PORTRAIT
     pages_per_side: int = 1
-    margin_pt: float = 18.0
+    margin_pt: float = 12.0
     gutter_pt: float = 12.0
 
     def __post_init__(self) -> None:

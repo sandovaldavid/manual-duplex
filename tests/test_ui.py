@@ -1,24 +1,26 @@
 import pytest
 
 from manual_duplex.errors import CommandError
+from manual_duplex.models import Quality
 from manual_duplex.ui import (
     build_refeed_instruction,
     parse_calibration_form,
     parse_print_form,
+    quality_labels,
 )
 
 
 def test_print_form_maps_spanish_labels_to_internal_values() -> None:
     result = parse_print_form(
         (
-            "Brother_DCP_T310",
             "A4",
             "Vertical",
             "1",
             "Normal",
             "Color",
             "No",
-        )
+        ),
+        printer="Brother_DCP_T310",
     )
 
     assert result == {
@@ -30,6 +32,11 @@ def test_print_form_maps_spanish_labels_to_internal_values() -> None:
         "color": "color",
         "preview": "no",
     }
+
+
+def test_quality_labels_only_show_supported_modes() -> None:
+    assert quality_labels((Quality.NORMAL,)) == ("Normal",)
+    assert quality_labels((Quality.NORMAL, Quality.HIGH)) == ("Normal", "Alta")
 
 
 def test_calibration_form_requires_explicit_choices() -> None:
