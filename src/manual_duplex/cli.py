@@ -20,6 +20,7 @@ from .models import (
     PrintSettings,
     Quality,
 )
+from .pdf import logical_page_count
 from .ui import Zenity
 from .workflow import PrintResult, print_document
 
@@ -288,7 +289,21 @@ def _cmd_gui(args: argparse.Namespace) -> int:
         if profile is None:
             return 0
 
-    if not ui.confirm_print(source, printer, form):
+    if int(form["pages_per_side"]) > 1:
+        try:
+            page_count = logical_page_count(source)
+        except ManualDuplexError as exc:
+            ui.print_error(str(exc))
+            return 2
+        if not ui.confirm_layout_preview(
+            source,
+            printer,
+            form,
+            page_count,
+            profile.pass_order,
+        ):
+            return 0
+    elif not ui.confirm_print(source, printer, form):
         return 0
 
     settings = PrintSettings(
