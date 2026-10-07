@@ -18,7 +18,7 @@ The MVP deliberately supports:
 - CUPS printers;
 - A4, Letter, Legal and Folio physical paper sizes;
 - portrait and landscape output;
-- 1 or 2 logical pages per physical side;
+- 1, 2 or 4 logical pages per physical side;
 - guided two-pass printing;
 - calibrated front-first or back-first pass order;
 - normal or reverse back-pass ordering;
@@ -44,6 +44,20 @@ physical side 2 -> document pages 3 + 4
 physical side 3 -> document pages 5 + 6
 physical side 4 -> document pages 7 + 8
 ```
+
+With `--pages-per-side 4`, each side uses a 2×2 grid in normal reading order:
+
+```text
+physical side 1       physical side 2
+┌─────┬─────┐         ┌─────┬─────┐
+│  1  │  2  │         │  5  │  6  │
+├─────┼─────┤         ├─────┼─────┤
+│  3  │  4  │         │  7  │  8  │
+└─────┴─────┘         └─────┴─────┘
+```
+
+Those two physical sides form one duplex sheet, so 4-up fits up to eight
+logical document pages on one sheet.
 
 Only after that composition does `manual-duplex` split odd physical sides into
 the front pass and even physical sides into the back pass.
@@ -169,6 +183,17 @@ manual-duplex print document.pdf \
   --pages-per-side 2
 ```
 
+Four document pages per physical side, for up to eight logical pages per
+duplex sheet:
+
+```bash
+manual-duplex print document.pdf \
+  --printer Brother_DCP_T310 \
+  --paper a4 \
+  --orientation portrait \
+  --pages-per-side 4
+```
+
 Monochrome draft printing, when the driver exposes compatible options:
 
 ```bash
@@ -222,8 +247,17 @@ normal path. It uses practical defaults:
 
 Before sending anything to CUPS, the GUI shows a human-readable summary with the
 selected file, printer, paper, orientation, pages per side, quality, color and
-preview choice. The paper-reinsertion dialog is written as a short sequence of
-physical steps and explicitly tells the user not to reorder individual sheets.
+preview choice.
+
+For 2-up and 4-up jobs, that confirmation becomes a monospace schematic preview
+of the final physical sheets. It labels each sheet's front and back, shows the
+logical page numbers in their expected positions, and states whether fronts or
+backs are sent in the first pass. Long documents show the first three sheets and
+then summarize how many remain. This is intentionally a layout preview rather
+than a rendered thumbnail of the PDF content.
+
+The paper-reinsertion dialog is written as a short sequence of physical steps
+and explicitly tells the user not to reorder individual sheets.
 
 Quality choices are capability-driven. Normal is always available; Draft and
 High are shown only when the selected CUPS driver exposes a recognized mapping.

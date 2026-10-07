@@ -16,27 +16,12 @@ def compose_pdf(
 ) -> int:
     """Normalize source pages into physical printable sides.
 
-    The output PDF already has the requested paper size and orientation. For
-    two-up printing, two logical pages are fitted into each physical side.
+    The output PDF already has the requested paper size and orientation.
+    Multiple logical pages are fitted into each physical side before the
+    document is split into duplex passes.
     """
 
-    try:
-        reader = PdfReader(str(source))
-    except Exception as exc:
-        raise ManualDuplexError(f"Cannot read PDF: {source}") from exc
-
-    if reader.is_encrypted:
-        try:
-            unlocked = reader.decrypt("")
-        except Exception as exc:
-            raise ManualDuplexError(
-                "Encrypted PDFs are not supported without a password."
-            ) from exc
-        if not unlocked:
-            raise ManualDuplexError("Encrypted PDFs are not supported without a password.")
-
-    if not reader.pages:
-        raise ManualDuplexError("The PDF has no pages.")
+    reader = _read_pdf(source)
 
     width, height = settings.page_size
     writer = PdfWriter()
@@ -53,6 +38,12 @@ def compose_pdf(
     destination.parent.mkdir(parents=True, exist_ok=True)
     writer.write(str(destination))
     return len(writer.pages)
+
+
+def logical_page_count(source: Path) -> int:
+    """Return the number of logical pages after validating the source PDF."""
+
+    return len(_read_pdf(source).pages)
 
 
 def split_duplex_passes(
@@ -115,6 +106,22 @@ def _slots(
 
     if settings.pages_per_side == 1:
         return [(margin, margin, usable_width, usable_height)]
+
+    if settings.pages_per_side == 4:
+        slot_width = (usable_width - gutter) / 2
+        slot_height = (usable_height - gutter) / 2
+        if slot_width <= 0 or slot_height <= 0:
+            raise ManualDuplexError("Gutter leaves no printable area.")
+
+        right_x = margin + slot_width + gutter
+        top_y = margin + slot_height + gutter
+        slots = [
+            (margin, top_y, slot_width, slot_height),
+            (right_x, top_y, slot_width, slot_height),
+            (margin, margin, slot_width, slot_height),
+            (right_x, margin, slot_width, slot_height),
+        ]
+        return slots[:source_page_count]
 
     if settings.orientation.value == "landscape":
         slot_width = (usable_width - gutter) / 2
@@ -189,3 +196,25 @@ def _write_pass(
             added_page.rotate(rotation)
 
     writer.write(str(destination))
+
+
+def _read_pdf(source: Path) -> PdfReader:
+    try:
+        reader = PdfReader(str(source))
+    except Exception as exc:
+        raise ManualDuplexError(f"Cannot read PDF: {source}") from exc
+
+    if reader.is_encrypted:
+        try:
+            unlocked = reader.decrypt("")
+        except Exception as exc:
+            raise ManualDuplexError(
+                "Encrypted PDFs are not supported without a password."
+            ) from exc
+        if not unlocked:
+            raise ManualDuplexError("Encrypted PDFs are not supported without a password.")
+
+    if not reader.pages:
+        raise ManualDuplexError("The PDF has no pages.")
+
+    return reader

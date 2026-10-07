@@ -56,8 +56,8 @@ class LayoutSettings:
     gutter_pt: float = 12.0
 
     def __post_init__(self) -> None:
-        if self.pages_per_side not in (1, 2):
-            raise ValueError("pages_per_side must be 1 or 2")
+        if self.pages_per_side not in (1, 2, 4):
+            raise ValueError("pages_per_side must be 1, 2 or 4")
         if self.margin_pt < 0 or self.gutter_pt < 0:
             raise ValueError("margins cannot be negative")
 
