@@ -9,6 +9,7 @@ def test_desktop_entry_uses_local_file_field_code_not_username_placeholder() -> 
     assert 'Exec="/home/test/.local/bin/manual-duplex" gui %f' in content
     assert "%u" not in content
     assert "MimeType=application/pdf;" in content
+    assert "StartupWMClass=zenity" not in content
 
 
 def test_desktop_entry_exposes_graphical_actions_and_app_icon() -> None:
