@@ -21,23 +21,7 @@ def compose_pdf(
     document is split into duplex passes.
     """
 
-    try:
-        reader = PdfReader(str(source))
-    except Exception as exc:
-        raise ManualDuplexError(f"Cannot read PDF: {source}") from exc
-
-    if reader.is_encrypted:
-        try:
-            unlocked = reader.decrypt("")
-        except Exception as exc:
-            raise ManualDuplexError(
-                "Encrypted PDFs are not supported without a password."
-            ) from exc
-        if not unlocked:
-            raise ManualDuplexError("Encrypted PDFs are not supported without a password.")
-
-    if not reader.pages:
-        raise ManualDuplexError("The PDF has no pages.")
+    reader = _read_pdf(source)
 
     width, height = settings.page_size
     writer = PdfWriter()
@@ -54,6 +38,12 @@ def compose_pdf(
     destination.parent.mkdir(parents=True, exist_ok=True)
     writer.write(str(destination))
     return len(writer.pages)
+
+
+def logical_page_count(source: Path) -> int:
+    """Return the number of logical pages after validating the source PDF."""
+
+    return len(_read_pdf(source).pages)
 
 
 def split_duplex_passes(
@@ -206,3 +196,25 @@ def _write_pass(
             added_page.rotate(rotation)
 
     writer.write(str(destination))
+
+
+def _read_pdf(source: Path) -> PdfReader:
+    try:
+        reader = PdfReader(str(source))
+    except Exception as exc:
+        raise ManualDuplexError(f"Cannot read PDF: {source}") from exc
+
+    if reader.is_encrypted:
+        try:
+            unlocked = reader.decrypt("")
+        except Exception as exc:
+            raise ManualDuplexError(
+                "Encrypted PDFs are not supported without a password."
+            ) from exc
+        if not unlocked:
+            raise ManualDuplexError("Encrypted PDFs are not supported without a password.")
+
+    if not reader.pages:
+        raise ManualDuplexError("The PDF has no pages.")
+
+    return reader
