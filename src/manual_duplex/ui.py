@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
+from importlib import resources
 from pathlib import Path
 
 from .errors import CommandError
@@ -11,6 +12,7 @@ from .models import PassOrder, Quality
 _PRINT_ACTION = "Imprimir un PDF"
 _CONFIGURE_ACTION = "Configurar impresora"
 _HELP_ACTION = "Ayuda y solución de problemas"
+_ICON_RESOURCE = ("assets", "manual-duplex.svg")
 
 _PAPER_LABELS = {
     "A4": "a4",
@@ -422,13 +424,23 @@ class Zenity:
         check: bool = True,
         input_text: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        result = subprocess.run(
-            list(args),
-            check=False,
-            capture_output=True,
-            text=True,
-            input=input_text,
-        )
+        command = list(args)
+        icon = resources.files("manual_duplex")
+        for part in _ICON_RESOURCE:
+            icon = icon.joinpath(part)
+
+        with resources.as_file(icon) as icon_path:
+            if not any(item.startswith("--window-icon=") for item in command):
+                command.insert(1, f"--window-icon={icon_path}")
+
+            result = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                input=input_text,
+            )
+
         if check and result.returncode != 0:
             detail = result.stderr.strip() or result.stdout.strip() or "error desconocido"
             raise CommandError(f"Zenity falló: {detail}")
