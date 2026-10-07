@@ -6,8 +6,8 @@ from manual_duplex.errors import CommandError
 from manual_duplex.models import PassOrder, Quality
 from manual_duplex.ui import (
     build_refeed_instruction,
-    parse_calibration_form,
     layout_preview_text,
+    parse_calibration_form,
     parse_print_form,
     print_summary_text,
     quality_labels,
