@@ -4,7 +4,7 @@ import pytest
 from pypdf import PdfReader, PdfWriter
 
 from manual_duplex.models import BackOrder, LayoutSettings, Orientation, Paper
-from manual_duplex.pdf import _slots, compose_pdf, split_duplex_passes
+from manual_duplex.pdf import _slots, compose_pdf, logical_page_count, split_duplex_passes
 
 
 def _make_pdf(path: Path, page_count: int, width: float = 300, height: float = 500) -> None:
@@ -21,6 +21,13 @@ def test_default_layout_uses_safe_compact_margin() -> None:
 def test_layout_rejects_unsupported_pages_per_side() -> None:
     with pytest.raises(ValueError, match="1, 2 or 4"):
         LayoutSettings(pages_per_side=3)
+
+
+def test_logical_page_count_uses_validated_pdf_reader(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    _make_pdf(source, 7)
+
+    assert logical_page_count(source) == 7
 
 
 def test_compose_one_up_preserves_side_count_and_target_size(tmp_path: Path) -> None:
