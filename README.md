@@ -210,6 +210,11 @@ The print form is presented in Spanish with practical defaults:
 - color;
 - preview disabled.
 
+Quality choices are capability-driven. Normal is always available; Draft and
+High are shown only when the selected CUPS driver exposes a recognized mapping.
+For example, a driver that exposes paper size and color but no recognized
+quality option will show only Normal instead of offering modes that would fail.
+
 If the selected printer has never been configured, the app opens the graphical
 first-run setup automatically. It asks for four physical behaviors that software
 cannot safely guess:
@@ -246,6 +251,10 @@ pass using graphical dialogs.
 
 `manual-duplex` intentionally:
 
+- sends an explicit standard CUPS orientation request for portrait and
+  landscape jobs instead of depending on driver auto-rotation;
+- composes content with a 12-point default safety margin, while still leaving
+  printer clipping to the selected media/driver;
 - waits until the first CUPS job disappears from the active queue before asking
   for paper reinsertion;
 - never starts the second pass without explicit user confirmation;
