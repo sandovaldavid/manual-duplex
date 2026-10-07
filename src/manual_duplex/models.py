@@ -21,6 +21,11 @@ class BackOrder(StrEnum):
     REVERSE = "reverse"
 
 
+class PassOrder(StrEnum):
+    FRONTS_FIRST = "fronts_first"
+    BACKS_FIRST = "backs_first"
+
+
 class Quality(StrEnum):
     NORMAL = "normal"
     DRAFT = "draft"
@@ -68,6 +73,7 @@ class LayoutSettings:
 class PrinterProfile:
     printer: str
     back_order: BackOrder
+    pass_order: PassOrder = PassOrder.FRONTS_FIRST
     back_rotation: int = 0
     refeed_instruction: str = (
         "Reinsert the printed stack using the orientation validated for this printer."

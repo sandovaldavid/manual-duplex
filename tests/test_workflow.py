@@ -5,6 +5,7 @@ from pypdf import PdfWriter
 from manual_duplex.models import (
     BackOrder,
     LayoutSettings,
+    PassOrder,
     PrinterProfile,
     PrintSettings,
 )
@@ -59,7 +60,7 @@ def test_second_pass_only_starts_after_confirmation(tmp_path: Path) -> None:
         ),
     )
 
-    assert len(cups.submitted) == 2
+    assert [path.name for path in cups.submitted] == ["fronts.pdf", "backs.pdf"]
     assert cups.waited == ["printer-1", "printer-2"]
     assert confirmations == [2]
     assert result.back_job_id == "printer-2"
@@ -86,3 +87,30 @@ def test_single_physical_side_never_prompts_for_refeed(tmp_path: Path) -> None:
 
     assert len(cups.submitted) == 1
     assert result.back_job_id is None
+
+
+def test_backs_first_submits_back_pass_before_fronts_for_two_up(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    _make_pdf(source, 8)
+    cups = FakeCups()
+
+    result = print_document(
+        source=source,
+        printer="printer",
+        settings=PrintSettings(layout=LayoutSettings(pages_per_side=2)),
+        profile=PrinterProfile(
+            printer="printer",
+            back_order=BackOrder.REVERSE,
+            pass_order=PassOrder.BACKS_FIRST,
+            refeed_instruction="Reinsert now.",
+        ),
+        cups=cups,  # type: ignore[arg-type]
+        confirm_refeed=lambda instruction, sheets: (
+            instruction == "Reinsert now." and sheets == 2
+        ),
+    )
+
+    assert [path.name for path in cups.submitted] == ["backs.pdf", "fronts.pdf"]
+    assert cups.waited == ["printer-1", "printer-2"]
+    assert result.back_job_id == "printer-1"
+    assert result.front_job_id == "printer-2"
