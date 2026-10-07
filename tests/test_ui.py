@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from manual_duplex.errors import CommandError
 from manual_duplex.models import PassOrder, Quality
 from manual_duplex.ui import (
+    Zenity,
     build_refeed_instruction,
     layout_preview_text,
     parse_calibration_form,
@@ -197,3 +199,51 @@ def test_layout_preview_limits_long_documents_to_three_sheets() -> None:
     assert "HOJA 3" in text
     assert "HOJA 4" not in text
     assert "... y 7 hoja(s) más." in text
+
+
+def test_zenity_run_adds_packaged_window_icon(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(
+        args: list[str],
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    Zenity._run(("zenity", "--info", "--title=Test"), check=False)
+
+    command = captured["args"]
+    assert isinstance(command, list)
+    assert command[0] == "zenity"
+    assert command[1].startswith("--window-icon=")
+    assert command[1].endswith("/manual-duplex.svg")
+    assert command[2:] == ["--info", "--title=Test"]
+
+
+def test_zenity_run_preserves_explicit_window_icon(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(
+        args: list[str],
+        **_: object,
+    ) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    Zenity._run(
+        ("zenity", "--window-icon=/tmp/custom.svg", "--info"),
+        check=False,
+    )
+
+    command = captured["args"]
+    assert isinstance(command, list)
+    assert command.count("--window-icon=/tmp/custom.svg") == 1
+    assert sum(item.startswith("--window-icon=") for item in command) == 1
