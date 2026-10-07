@@ -79,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Open printer configuration directly.",
     )
+    gui.add_argument(
+        "--troubleshoot",
+        action="store_true",
+        help="Open graphical troubleshooting help directly.",
+    )
     gui.set_defaults(handler=_cmd_gui)
 
     desktop = subparsers.add_parser(
@@ -233,23 +238,36 @@ def _cmd_print(args: argparse.Namespace) -> int:
 
 def _cmd_gui(args: argparse.Namespace) -> int:
     ui = Zenity()
+
+    if args.troubleshoot:
+        ui.help_menu()
+        return 0
+
+    source = args.file.expanduser().resolve() if args.file else None
+    requested_action: str | None = None
+    if source is None and not args.configure:
+        requested_action = ui.choose_action()
+        if requested_action is None:
+            return 0
+        if requested_action == "help":
+            ui.help_menu()
+            return 0
+        if requested_action == "print":
+            source = ui.choose_pdf()
+            if source is None:
+                return 0
+
     cups = CupsClient()
     printers = cups.list_printers()
     if not printers:
-        ui.error("Dúplex manual", "No se encontraron impresoras configuradas en CUPS.")
+        ui.print_error(
+            "No se encontraron impresoras configuradas. Abre Configuración de Fedora > "
+            "Impresoras y verifica que la impresora esté encendida y conectada."
+        )
         return 2
 
-    if args.configure:
+    if args.configure or requested_action == "configure":
         return _configure_printer_gui(ui, cups, printers)
-
-    source = args.file.expanduser().resolve() if args.file else None
-    if source is None:
-        action = ui.choose_action()
-        if action is None:
-            return 0
-        if action == "configure":
-            return _configure_printer_gui(ui, cups, printers)
-        source = ui.choose_pdf()
 
     if source is None:
         return 0
@@ -269,6 +287,9 @@ def _cmd_gui(args: argparse.Namespace) -> int:
         profile = _configure_profile_gui(ui, printer)
         if profile is None:
             return 0
+
+    if not ui.confirm_print(source, printer, form):
+        return 0
 
     settings = PrintSettings(
         layout=LayoutSettings(
@@ -291,15 +312,10 @@ def _cmd_gui(args: argparse.Namespace) -> int:
             confirm_refeed=ui.confirm_refeed,
         )
     except ManualDuplexError as exc:
-        ui.error("Dúplex manual", str(exc))
+        ui.print_error(str(exc))
         return 2
 
-    ui.info(
-        "Dúplex manual",
-        f"Impresión finalizada.\nHojas: {result.sheet_count}\n"
-        f"Trabajo de frentes: {result.front_job_id}\n"
-        f"Trabajo de reversos: {result.back_job_id or 'no fue necesario'}",
-    )
+    ui.print_complete(result.sheet_count, result.physical_sides)
     return 0
 
 
