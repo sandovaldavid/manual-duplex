@@ -247,8 +247,17 @@ normal path. It uses practical defaults:
 
 Before sending anything to CUPS, the GUI shows a human-readable summary with the
 selected file, printer, paper, orientation, pages per side, quality, color and
-preview choice. The paper-reinsertion dialog is written as a short sequence of
-physical steps and explicitly tells the user not to reorder individual sheets.
+preview choice.
+
+For 2-up and 4-up jobs, that confirmation becomes a monospace schematic preview
+of the final physical sheets. It labels each sheet's front and back, shows the
+logical page numbers in their expected positions, and states whether fronts or
+backs are sent in the first pass. Long documents show the first three sheets and
+then summarize how many remain. This is intentionally a layout preview rather
+than a rendered thumbnail of the PDF content.
+
+The paper-reinsertion dialog is written as a short sequence of physical steps
+and explicitly tells the user not to reorder individual sheets.
 
 Quality choices are capability-driven. Normal is always available; Draft and
 High are shown only when the selected CUPS driver exposes a recognized mapping.
