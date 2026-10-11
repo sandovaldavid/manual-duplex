@@ -12,12 +12,14 @@ from .desktop import install_desktop_entry
 from .errors import CommandError, ConfigurationError, ManualDuplexError
 from .models import (
     BackOrder,
+    FeedEdge,
     LayoutSettings,
     Orientation,
     Paper,
     PassOrder,
     PrinterProfile,
     PrintSettings,
+    PrintedFace,
     Quality,
 )
 from .pdf import logical_page_count
@@ -324,7 +326,9 @@ def _cmd_gui(args: argparse.Namespace) -> int:
             profile=profile,
             cups=cups,
             preview=ui.preview if form["preview"] == "yes" else None,
-            confirm_refeed=ui.confirm_refeed,
+            confirm_refeed=lambda instruction, sheets: ui.confirm_refeed(
+                instruction, sheets, profile=profile
+            ),
         )
     except ManualDuplexError as exc:
         ui.print_error(str(exc))
@@ -373,6 +377,8 @@ def _configure_profile_gui(ui: Zenity, printer: str) -> PrinterProfile | None:
             pass_order=PassOrder(str(calibration["pass_order"])),
             back_rotation=int(calibration["back_rotation"]),
             refeed_instruction=str(calibration["refeed_instruction"]),
+            printed_face=PrintedFace(str(calibration["printed_face"])),
+            feed_edge=FeedEdge(str(calibration["feed_edge"])),
         )
         save_profile(profile)
         ui.info(
