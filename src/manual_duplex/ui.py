@@ -257,21 +257,6 @@ class Zenity:
             cancel_label="Cancelar",
         )
 
-    def confirm_print(
-        self,
-        source: Path,
-        printer: str,
-        form: Mapping[str, str],
-    ) -> bool:
-        return self.question(
-            "Revisar impresión",
-            print_summary_text(source, printer, form)
-            + "\n\nLa impresión a doble cara se realiza en dos pasadas. "
-            "La aplicación te avisará exactamente cuándo volver a colocar las hojas.",
-            ok_label="Empezar impresión",
-            cancel_label="Cancelar",
-        )
-
     def confirm_layout_preview(
         self,
         source: Path,
@@ -299,7 +284,7 @@ class Zenity:
                 "--width=760",
                 "--height=620",
                 "--ok-label=Se ve bien, imprimir",
-                "--cancel-label=Volver",
+                "--cancel-label=Cancelar",
             ),
             check=False,
             input_text=text,
@@ -539,8 +524,8 @@ def layout_preview_text(
 ) -> str:
     if page_count <= 0:
         raise ValueError("page_count must be greater than zero")
-    if pages_per_side not in (2, 4):
-        raise ValueError("schematic preview supports only 2-up or 4-up")
+    if pages_per_side not in (1, 2, 4):
+        raise ValueError("schematic preview supports only 1-up, 2-up or 4-up")
     if orientation not in {"portrait", "landscape"}:
         raise ValueError("orientation must be portrait or landscape")
     if max_sheets <= 0:
@@ -548,24 +533,37 @@ def layout_preview_text(
 
     pages_per_sheet = pages_per_side * 2
     sheet_count = (page_count + pages_per_sheet - 1) // pages_per_sheet
-    first_pass = (
-        "reversos"
-        if pass_order is PassOrder.BACKS_FIRST
-        else "caras delanteras"
-    )
-    second_pass = (
-        "caras delanteras"
-        if pass_order is PassOrder.BACKS_FIRST
-        else "reversos"
-    )
+    physical_sides = (page_count + pages_per_side - 1) // pages_per_side
+    # With only one physical side, the print engine sends one job regardless
+    # of the calibrated duplex pass order.
+    if physical_sides == 1:
+        pass_description = [
+            "Una sola pasada: únicamente la cara delantera.",
+            "No será necesario volver a colocar las hojas.",
+        ]
+    else:
+        first_pass = (
+            "reversos"
+            if pass_order is PassOrder.BACKS_FIRST
+            else "caras delanteras"
+        )
+        second_pass = (
+            "caras delanteras"
+            if pass_order is PassOrder.BACKS_FIRST
+            else "reversos"
+        )
+        pass_description = [
+            f"Primera pasada: {first_pass}.",
+            f"Segunda pasada: {second_pass}.",
+        ]
 
     lines = [
-        "VISTA ESQUEMÁTICA",
-        "No muestra el contenido real del PDF; muestra dónde quedará cada página.",
+        "VISTA ESQUEMÁTICA ANTES DE IMPRIMIR",
+        "Muestra la distribución lógica de las páginas, no el contenido real del PDF.",
+        "Frente y reverso se muestran como se leen, sin simular el volteo físico.",
         "",
         f"Total: {page_count} página(s) lógica(s) en {sheet_count} hoja(s) física(s).",
-        f"Primera pasada: {first_pass}.",
-        f"Segunda pasada: {second_pass}.",
+        *pass_description,
         "",
     ]
 
@@ -592,10 +590,11 @@ def layout_preview_text(
             f"... y {remaining} hoja(s) más. El mismo patrón continúa hasta el final."
         )
 
-    lines.append(
-        "Durante la reinserción mantén el bloque completo en el mismo orden; "
-        "no voltees hojas individualmente."
-    )
+    if physical_sides > 1:
+        lines.append(
+            "Después de la primera pasada se mostrará la guía física de reinserción. "
+            "Mantén el bloque completo en el mismo orden."
+        )
     return "\n".join(lines)
 
 
@@ -616,6 +615,12 @@ def _side_preview(
     orientation: str,
 ) -> list[str]:
     cells = [_preview_cell(page) for page in pages]
+    if pages_per_side == 1:
+        return [
+            "┌─────────┐",
+            f"│{cells[0]}│",
+            "└─────────┘",
+        ]
     if pages_per_side == 2 and orientation == "portrait":
         return [
             "┌─────────┐",
