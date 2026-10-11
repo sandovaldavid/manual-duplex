@@ -215,12 +215,38 @@ def test_layout_preview_limits_long_documents_to_three_sheets() -> None:
 @pytest.mark.parametrize(
     ("face", "edge", "visible_text", "first_edge", "opposite_edge"),
     [
-        (PrintedFace.UP, FeedEdge.TOP, "CARA YA IMPRESA VISIBLE", "BORDE SUPERIOR", "BORDE INFERIOR"),
-        (PrintedFace.UP, FeedEdge.BOTTOM, "CARA YA IMPRESA VISIBLE", "BORDE INFERIOR", "BORDE SUPERIOR"),
-        (PrintedFace.DOWN, FeedEdge.TOP, "CARA NO IMPRESA VISIBLE", "BORDE SUPERIOR", "BORDE INFERIOR"),
-        (PrintedFace.DOWN, FeedEdge.BOTTOM, "CARA NO IMPRESA VISIBLE", "BORDE INFERIOR", "BORDE SUPERIOR"),
+        (
+            PrintedFace.UP,
+            FeedEdge.TOP,
+            "CARA YA IMPRESA VISIBLE",
+            "BORDE SUPERIOR",
+            "BORDE INFERIOR",
+        ),
+        (
+            PrintedFace.UP,
+            FeedEdge.BOTTOM,
+            "CARA YA IMPRESA VISIBLE",
+            "BORDE INFERIOR",
+            "BORDE SUPERIOR",
+        ),
+        (
+            PrintedFace.DOWN,
+            FeedEdge.TOP,
+            "CARA NO IMPRESA VISIBLE",
+            "BORDE SUPERIOR",
+            "BORDE INFERIOR",
+        ),
+        (
+            PrintedFace.DOWN,
+            FeedEdge.BOTTOM,
+            "CARA NO IMPRESA VISIBLE",
+            "BORDE INFERIOR",
+            "BORDE SUPERIOR",
+        ),
     ],
 )
+
+
 def test_refeed_guide_matches_saved_orientation(
     face: PrintedFace,
     edge: FeedEdge,
