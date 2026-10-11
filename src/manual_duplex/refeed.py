@@ -25,6 +25,15 @@ def _legacy_orientation(instruction: str) -> tuple[PrintedFace, FeedEdge] | None
     return None
 
 
+def resolve_refeed_orientation(
+    profile: PrinterProfile,
+) -> tuple[PrintedFace, FeedEdge] | None:
+    """Use only persisted calibration or an exact old GUI instruction."""
+    if profile.printed_face is not None and profile.feed_edge is not None:
+        return profile.printed_face, profile.feed_edge
+    return _legacy_orientation(profile.refeed_instruction)
+
+
 def refeed_guide_text(profile: PrinterProfile, sheet_count: int) -> str:
     """Explain and diagram how to physically reinsert the printed sheet stack."""
     if sheet_count < 1:
@@ -39,11 +48,7 @@ def refeed_guide_text(profile: PrinterProfile, sheet_count: int) -> str:
         "",
     ]
 
-    orientation: tuple[PrintedFace, FeedEdge] | None = None
-    if profile.printed_face is not None and profile.feed_edge is not None:
-        orientation = profile.printed_face, profile.feed_edge
-    else:
-        orientation = _legacy_orientation(profile.refeed_instruction)
+    orientation = resolve_refeed_orientation(profile)
 
     if orientation is None:
         lines.extend(
