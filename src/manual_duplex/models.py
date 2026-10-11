@@ -32,6 +32,16 @@ class Quality(StrEnum):
     HIGH = "high"
 
 
+class PrintedFace(StrEnum):
+    UP = "up"
+    DOWN = "down"
+
+
+class FeedEdge(StrEnum):
+    TOP = "top"
+    BOTTOM = "bottom"
+
+
 PAPER_POINTS: dict[Paper, tuple[float, float]] = {
     Paper.A4: (595.2756, 841.8898),
     Paper.LETTER: (612.0, 792.0),
@@ -78,10 +88,14 @@ class PrinterProfile:
     refeed_instruction: str = (
         "Reinsert the printed stack using the orientation validated for this printer."
     )
+    printed_face: PrintedFace | None = None
+    feed_edge: FeedEdge | None = None
 
     def __post_init__(self) -> None:
         if self.back_rotation not in (0, 180):
             raise ValueError("back_rotation must be 0 or 180")
+        if (self.printed_face is None) != (self.feed_edge is None):
+            raise ValueError("printed_face and feed_edge must be set together")
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import ConfigurationError
-from .models import BackOrder, PassOrder, PrinterProfile
+from .models import BackOrder, FeedEdge, PassOrder, PrintedFace, PrinterProfile
 
 _CONFIG_VERSION = 1
 
@@ -51,6 +51,10 @@ def get_profile(printer: str, path: Path | None = None) -> PrinterProfile | None
                     "Reinsert the printed stack using the orientation validated for this printer.",
                 )
             ),
+            printed_face=(
+                PrintedFace(raw["printed_face"]) if "printed_face" in raw else None
+            ),
+            feed_edge=FeedEdge(raw["feed_edge"]) if "feed_edge" in raw else None,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ConfigurationError(f"Invalid profile for printer {printer!r}") from exc
@@ -59,12 +63,16 @@ def get_profile(printer: str, path: Path | None = None) -> PrinterProfile | None
 def save_profile(profile: PrinterProfile, path: Path | None = None) -> Path:
     config_path = path or default_config_path()
     data = load_config(config_path)
-    data["printers"][profile.printer] = {
+    entry = {
         "back_order": profile.back_order.value,
         "pass_order": profile.pass_order.value,
         "back_rotation": profile.back_rotation,
         "refeed_instruction": profile.refeed_instruction,
     }
+    if profile.printed_face is not None and profile.feed_edge is not None:
+        entry["printed_face"] = profile.printed_face.value
+        entry["feed_edge"] = profile.feed_edge.value
+    data["printers"][profile.printer] = entry
 
     config_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = config_path.with_suffix(".tmp")
