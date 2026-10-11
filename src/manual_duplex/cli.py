@@ -457,6 +457,8 @@ def _profile_for_print(
         pass_order=resolved_pass_order,
         back_rotation=resolved_rotation,
         refeed_instruction=instruction,
+        printed_face=saved.printed_face if saved is not None else None,
+        feed_edge=saved.feed_edge if saved is not None else None,
     )
 
 
