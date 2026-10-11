@@ -1,7 +1,9 @@
 from pathlib import Path
 
+import pytest
 from pypdf import PdfWriter
 
+from manual_duplex.errors import ManualDuplexError
 from manual_duplex.models import (
     BackOrder,
     LayoutSettings,
