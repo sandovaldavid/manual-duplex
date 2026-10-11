@@ -256,8 +256,28 @@ backs are sent in the first pass. Long documents show the first three sheets and
 then summarize how many remain. This is intentionally a layout preview rather
 than a rendered thumbnail of the PDF content.
 
-The paper-reinsertion dialog is written as a short sequence of physical steps
-and explicitly tells the user not to reorder individual sheets.
+The paper-reinsertion dialog now shows a **schematic view of the input tray**
+after the first CUPS print pass has finished. It indicates which face of the
+already-printed sheet stack must be visible and which edge enters the printer
+first. It uses the physical orientation saved by the user during printer
+calibration, never a printer model-specific guess. The diagram covers all four
+face-up/face-down and top-edge/bottom-edge combinations. A single, explicit
+**Ya coloqué las hojas, continuar** button remains mandatory before the second
+print pass. Cancelling the dialog stops the second pass.
+
+The calibration saves two optional fields, `printed_face` and `feed_edge`,
+alongside the existing human instruction in configuration version 1. The
+legacy GUI-generated instructions are recognized only if they match the
+original format exactly; arbitrary historic instructions remain visible but
+**do not** produce a potentially misleading drawing. Users with those
+instructions can reconfigure their printer in the GUI to record the two
+physical orientation fields. This does not overwrite physical calibration by
+guessing how a given Brother or CUPS queue behaves.
+
+The tray diagram is a schematic guide for loading the paper, not a guarantee
+of the printer's actual paper path or an image of the print contents. Users
+must verify the orientation with a short physical print test. The original
+warning not to reorder individual sheets remains in place.
 
 Quality choices are capability-driven. Normal is always available; Draft and
 High are shown only when the selected CUPS driver exposes a recognized mapping.
