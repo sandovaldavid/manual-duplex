@@ -375,3 +375,89 @@ def test_visual_refeed_modal_continue_on_explicit_ok(
         feed_edge=FeedEdge.BOTTOM,
     )
     assert ui.confirm_refeed(profile.refeed_instruction, 2, profile=profile)
+
+
+
+def test_one_up_preview_shows_front_back_and_one_page_per_side() -> None:
+    text = layout_preview_text(
+        page_count=3,
+        pages_per_side=1,
+        orientation="portrait",
+        pass_order=PassOrder.BACKS_FIRST,
+    )
+
+    assert "VISTA ESQUEMÁTICA ANTES DE IMPRIMIR" in text
+    assert "Total: 3 página(s) lógica(s) en 2 hoja(s) física(s)." in text
+    assert "Primera pasada: reversos." in text
+    assert "Segunda pasada: caras delanteras." in text
+    assert "Frente\n┌─────────┐\n│    1    │\n└─────────┘" in text
+    assert "Reverso\n┌─────────┐\n│    2    │\n└─────────┘" in text
+    assert "HOJA 2" in text
+    assert "│    3    │" in text
+    assert "│  vacío  │" in text
+
+
+@pytest.mark.parametrize("pages_per_side", [1, 2, 4])
+def test_single_physical_side_preview_does_not_claim_duplex(
+    pages_per_side: int,
+) -> None:
+    text = layout_preview_text(
+        page_count=pages_per_side,
+        pages_per_side=pages_per_side,
+        orientation="landscape",
+        pass_order=PassOrder.BACKS_FIRST,
+    )
+
+    assert "Una sola pasada: únicamente la cara delantera." in text
+    assert "No será necesario volver a colocar las hojas." in text
+    assert "Primera pasada: reversos." not in text
+    assert "Segunda pasada:" not in text
+    assert "HOJA 1" in text
+    assert "Reverso" in text
+    assert "vacío" in text
+    assert "Después de la primera pasada se mostrará" not in text
+
+
+@pytest.mark.parametrize("pages_per_side", [1, 2, 4])
+def test_layout_preview_dialog_used_for_all_print_modes(
+    monkeypatch: pytest.MonkeyPatch,
+    pages_per_side: int,
+) -> None:
+    captured: list[tuple[tuple[str, ...], str | None]] = []
+
+    def fake_run(
+        args: tuple[str, ...],
+        *,
+        check: bool = True,
+        input_text: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        del check
+        captured.append((args, input_text))
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(Zenity, "_run", staticmethod(fake_run))
+    ui = object.__new__(Zenity)
+    form = {
+        "paper": "a4",
+        "orientation": "portrait",
+        "pages_per_side": str(pages_per_side),
+        "quality": "normal",
+        "color": "color",
+        "preview": "no",
+    }
+
+    assert ui.confirm_layout_preview(
+        Path("/tmp/guia.pdf"), "Brother_DCP_T310", form,
+        page_count=pages_per_side * 2,
+        pass_order=PassOrder.BACKS_FIRST,
+    )
+    assert len(captured) == 1
+    command, preview_text = captured[0]
+    assert "--text-info" in command
+    assert "--cancel-label=Cancelar" in command
+    assert "--ok-label=Se ve bien, imprimir" in command
+    assert preview_text is not None
+    assert "Archivo: guia.pdf" in preview_text
+    assert "Frente" in preview_text
+    assert "Reverso" in preview_text
+    assert "Primera pasada: reversos." in preview_text
