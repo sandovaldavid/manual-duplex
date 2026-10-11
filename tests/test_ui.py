@@ -334,6 +334,9 @@ def test_visual_refeed_modal_requires_explicit_acceptance(
         return subprocess.CompletedProcess(args, 1, "", "")
 
     monkeypatch.setattr(Zenity, "_run", staticmethod(fake_run))
+    monkeypatch.setattr(
+        Zenity, "_illustrated_question", staticmethod(lambda *_args, **_kwargs: None)
+    )
     ui = object.__new__(Zenity)
     profile = PrinterProfile(
         printer="printer",
@@ -366,6 +369,9 @@ def test_visual_refeed_modal_continue_on_explicit_ok(
         return subprocess.CompletedProcess(args, 0, "", "")
 
     monkeypatch.setattr(Zenity, "_run", staticmethod(fake_run))
+    monkeypatch.setattr(
+        Zenity, "_illustrated_question", staticmethod(lambda *_args, **_kwargs: None)
+    )
     ui = object.__new__(Zenity)
     profile = PrinterProfile(
         printer="printer",
@@ -436,6 +442,9 @@ def test_layout_preview_dialog_used_for_all_print_modes(
         return subprocess.CompletedProcess(args, 0, "", "")
 
     monkeypatch.setattr(Zenity, "_run", staticmethod(fake_run))
+    monkeypatch.setattr(
+        Zenity, "_illustrated_question", staticmethod(lambda *_args, **_kwargs: None)
+    )
     ui = object.__new__(Zenity)
     form = {
         "paper": "a4",
