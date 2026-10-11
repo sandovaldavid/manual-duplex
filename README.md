@@ -71,13 +71,14 @@ through the printer so the stack does not drift out of alignment.
 - Linux with CUPS
 - Python 3.11 through 3.14
 - `lp`, `lpstat` and `lpoptions`
-- `zenity` only for GUI mode
+- `zenity` for general GUI dialogs and fallback instructions
+- `yad` for full-size illustrated SVG print-plan and refeed dialogs (optional)
 - `xdg-open` only for preview mode
 
 On Fedora:
 
 ```bash
-sudo dnf install cups-client zenity
+sudo dnf install cups-client zenity yad
 ```
 
 Install the project in an isolated environment:
@@ -246,14 +247,14 @@ normal path. It uses practical defaults:
 - preview disabled.
 
 Before sending anything to CUPS, the GUI presents one consistent
-**print-plan preview** for 1-up, 2-up and 4-up. The window includes the
-selected file, printer, paper, orientation, pages per side, quality, color and
-preview choice. Its monospaced diagrams show the logical page positions on
-each physical sheet's front and back, with unused cells labeled `vacío`.
-The first three sheets are drawn; longer documents show the number remaining.
-This is a diagram of the final page layout rather than a rendered image of
-the PDF content, and the front/back diagrams are not a physical paper-flip
-animation.
+**print-plan preview** for 1-up, 2-up and 4-up. With `yad` installed,
+the preview is a generated **2D SVG illustration** of logical page positions
+on the fronts and backs of up to three physical sheets, with unused cells
+labeled `Vacío`. It changes automatically with page count, orientation,
+pages per side and saved print-pass order. The PDF content itself is not
+rendered as thumbnails. The same screen is shown using the existing
+monospaced diagrams if `yad` is not installed. The preflight still requires
+explicit confirmation before any CUPS job is submitted.
 
 When the whole document fits on a single physical side, the preview explicitly
 indicates that only one pass is required. For duplex jobs it identifies whether
@@ -262,14 +263,22 @@ second window remains the separate **physical reinsertion guide** shown only
 after the first print pass has completed. Cancelling the preflight confirmation
 sends nothing to CUPS.
 
-The paper-reinsertion dialog now shows a **schematic view of the input tray**
-after the first CUPS print pass has finished. It indicates which face of the
-already-printed sheet stack must be visible and which edge enters the printer
-first. It uses the physical orientation saved by the user during printer
-calibration, never a printer model-specific guess. The diagram covers all four
-face-up/face-down and top-edge/bottom-edge combinations. A single, explicit
-**Ya coloqué las hojas, continuar** button remains mandatory before the second
-print pass. Cancelling the dialog stops the second pass.
+After the first CUPS print pass has finished, the GUI shows a
+**dynamic 2D SVG reinsertion guide** when `yad` is available. It has
+two panels: (1) an illustration of the printer ejecting the printed block,
+and (2) an input tray displaying the calibrated face-up/down and
+top/bottom edge orientation for reinsertion. The first panel is **illustrative
+only**: neither CUPS nor the existing calibration tells us the Brother
+DCP-T310's actual paper output path, ejection face or which sheet exits first.
+It must not be used to infer how to flip the stack. The second panel uses
+only the user's verified calibration; older custom instructions with unknown
+orientation show an explicit warning rather than a guessed drawing.
+
+The guide covers all four face-up/face-down and top-edge/bottom-edge
+combinations. Without `yad`, the existing Zenity text guide remains.
+The button **Ya coloqué las hojas, continuar** is required before the
+second pass; cancelling the dialog never submits that pass. The optional
+picture viewer does not replace Zenity for the rest of the workflow.
 
 The calibration saves two optional fields, `printed_face` and `feed_edge`,
 alongside the existing human instruction in configuration version 1. The
@@ -280,10 +289,12 @@ instructions can reconfigure their printer in the GUI to record the two
 physical orientation fields. This does not overwrite physical calibration by
 guessing how a given Brother or CUPS queue behaves.
 
-The tray diagram is a schematic guide for loading the paper, not a guarantee
-of the printer's actual paper path or an image of the print contents. Users
-must verify the orientation with a short physical print test. The original
-warning not to reorder individual sheets remains in place.
+The illustrated paper exit is generic, not a verified Brother DCP-T310
+paper path. The physical reinsertion instructions must be verified against
+the real printer with a short printed calibration test. Do not reorder,
+rotate or flip individual sheets unless the verified procedure explicitly
+requires it. `yad` renders SVG without a Python imaging dependency and
+must be installed separately on Fedora to activate full-size illustrations.
 
 Quality choices are capability-driven. Normal is always available; Draft and
 High are shown only when the selected CUPS driver exposes a recognized mapping.
