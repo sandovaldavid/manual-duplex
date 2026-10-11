@@ -146,3 +146,28 @@ def test_backs_first_four_up_prints_eight_logical_pages_per_sheet(
     assert result.sheet_count == 2
     assert result.back_job_id == "printer-1"
     assert result.front_job_id == "printer-2"
+
+
+
+def test_cancelled_refeed_never_sends_second_print_pass(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    _make_pdf(source, 8)
+    cups = FakeCups()
+
+    with pytest.raises(ManualDuplexError, match="Second pass cancelled"):
+        print_document(
+            source=source,
+            printer="printer",
+            settings=PrintSettings(layout=LayoutSettings(pages_per_side=4)),
+            profile=PrinterProfile(
+                printer="printer",
+                back_order=BackOrder.REVERSE,
+                pass_order=PassOrder.BACKS_FIRST,
+                refeed_instruction="Reinsert.",
+            ),
+            cups=cups,  # type: ignore[arg-type]
+            confirm_refeed=lambda _instruction, _sheets: False,
+        )
+
+    assert [path.name for path in cups.submitted] == ["backs.pdf"]
+    assert cups.waited == ["printer-1"]
