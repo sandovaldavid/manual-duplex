@@ -6,7 +6,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from .errors import CommandError
-from .models import PassOrder, Quality
+from .models import PassOrder, PrinterProfile, Quality
+from .refeed import build_refeed_instruction, refeed_guide_text
 
 _PRINT_ACTION = "Imprimir un PDF"
 _CONFIGURE_ACTION = "Configurar impresora"
@@ -323,18 +324,37 @@ class Zenity:
             cancel_label="Cancelar",
         )
 
-    def confirm_refeed(self, instruction: str, sheet_count: int) -> bool:
-        return self.question(
-            "Volver a colocar las hojas",
-            f"La primera pasada terminó ({sheet_count} hoja(s)).\n\n"
-            "1. Espera a que hayan salido todas las hojas.\n"
-            "2. Mantén el bloque en el mismo orden; no reordenes hojas individualmente.\n"
-            f"3. {instruction}\n"
-            "4. Ajusta las guías de la bandeja sin doblar ni apretar el papel.\n\n"
-            "Cuando el bloque esté listo, continúa con la segunda pasada.",
-            ok_label="Continuar impresión",
-            cancel_label="Cancelar",
+    def confirm_refeed(
+        self,
+        instruction: str,
+        sheet_count: int,
+        *,
+        profile: PrinterProfile | None = None,
+    ) -> bool:
+        if profile is None:
+            return self.question(
+                "Volver a colocar las hojas",
+                f"La primera pasada terminó ({sheet_count} hoja(s)).\n\n"
+                f"{instruction}\n\nConfirma solo después de colocar el bloque.",
+                ok_label="Continuar impresión",
+                cancel_label="Cancelar",
+            )
+
+        result = self._run(
+            (
+                "zenity",
+                "--text-info",
+                "--title=Cómo reinsertar el papel",
+                "--font=monospace 11",
+                "--width=760",
+                "--height=590",
+                "--ok-label=Ya coloqué las hojas, continuar",
+                "--cancel-label=Cancelar",
+            ),
+            check=False,
+            input_text=refeed_guide_text(profile, sheet_count),
         )
+        return result.returncode == 0
 
     def help_menu(self) -> None:
         topics = tuple(_HELP_TOPICS)
@@ -485,21 +505,11 @@ def parse_calibration_form(values: Sequence[str]) -> dict[str, str | int]:
             "back_order": _ORDER_LABELS[order],
             "back_rotation": _ROTATION_LABELS[rotation],
             "refeed_instruction": build_refeed_instruction(face_value, edge_value),
+            "printed_face": face_value,
+            "feed_edge": edge_value,
         }
     except KeyError as exc:
         raise CommandError("La calibración contiene un valor no reconocido.") from exc
-
-
-def build_refeed_instruction(face: str, edge: str) -> str:
-    face_text = {
-        "up": "la cara ya impresa hacia arriba",
-        "down": "la cara ya impresa hacia abajo",
-    }[face]
-    edge_text = {
-        "top": "el borde superior entrando primero",
-        "bottom": "el borde inferior entrando primero",
-    }[edge]
-    return f"Coloca el bloque con {face_text} y {edge_text}."
 
 
 def print_summary_text(
