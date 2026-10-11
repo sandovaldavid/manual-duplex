@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-from manual_duplex.config import get_profile, save_profile
 import pytest
 
+from manual_duplex.config import get_profile, save_profile
 from manual_duplex.errors import ConfigurationError
 from manual_duplex.models import (
     BackOrder,
