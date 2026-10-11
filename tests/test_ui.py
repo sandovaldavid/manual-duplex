@@ -249,10 +249,18 @@ def test_refeed_guide_matches_saved_orientation(
 @pytest.mark.parametrize(
     ("face", "edge"),
     [
-        (PrintedFace.UP, FeedEdge.TOP),
-        (PrintedFace.UP, FeedEdge.BOTTOM),
-        (PrintedFace.DOWN, FeedEdge.TOP),
-        (PrintedFace.DOWN, FeedEdge.BOTTOM),
+        (
+            PrintedFace.UP, FeedEdge.TOP,
+        ),
+        (
+            PrintedFace.UP, FeedEdge.BOTTOM,
+        ),
+        (
+            PrintedFace.DOWN, FeedEdge.TOP,
+        ),
+        (
+            PrintedFace.DOWN, FeedEdge.BOTTOM,
+        ),
     ],
 )
 def test_old_gui_calibration_has_accurate_diagram_without_migration(
