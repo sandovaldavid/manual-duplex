@@ -17,9 +17,9 @@ from .models import (
     Orientation,
     Paper,
     PassOrder,
+    PrintedFace,
     PrinterProfile,
     PrintSettings,
-    PrintedFace,
     Quality,
 )
 from .pdf import logical_page_count
