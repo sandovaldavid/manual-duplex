@@ -245,16 +245,22 @@ normal path. It uses practical defaults:
 - color;
 - preview disabled.
 
-Before sending anything to CUPS, the GUI shows a human-readable summary with the
+Before sending anything to CUPS, the GUI presents one consistent
+**print-plan preview** for 1-up, 2-up and 4-up. The window includes the
 selected file, printer, paper, orientation, pages per side, quality, color and
-preview choice.
+preview choice. Its monospaced diagrams show the logical page positions on
+each physical sheet's front and back, with unused cells labeled `vacío`.
+The first three sheets are drawn; longer documents show the number remaining.
+This is a diagram of the final page layout rather than a rendered image of
+the PDF content, and the front/back diagrams are not a physical paper-flip
+animation.
 
-For 2-up and 4-up jobs, that confirmation becomes a monospace schematic preview
-of the final physical sheets. It labels each sheet's front and back, shows the
-logical page numbers in their expected positions, and states whether fronts or
-backs are sent in the first pass. Long documents show the first three sheets and
-then summarize how many remain. This is intentionally a layout preview rather
-than a rendered thumbnail of the PDF content.
+When the whole document fits on a single physical side, the preview explicitly
+indicates that only one pass is required. For duplex jobs it identifies whether
+fronts or backs are sent in each pass based on the saved printer profile. The
+second window remains the separate **physical reinsertion guide** shown only
+after the first print pass has completed. Cancelling the preflight confirmation
+sends nothing to CUPS.
 
 The paper-reinsertion dialog now shows a **schematic view of the input tray**
 after the first CUPS print pass has finished. It indicates which face of the
