@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from .errors import CommandError
+from .illustrations import print_plan_svg, refeed_svg
 from .models import PassOrder, PrinterProfile, Quality
 from .refeed import build_refeed_instruction, refeed_guide_text
 
@@ -257,6 +259,42 @@ class Zenity:
             cancel_label="Cancelar",
         )
 
+    @staticmethod
+    def _illustrated_question(
+        svg_content: str,
+        *,
+        title: str,
+        ok_label: str,
+    ) -> bool | None:
+        """Use YAD's native picture dialog, or return None for Zenity fallback.
+
+        Only the button with exit code 0 grants printing consent. A non-zero
+        result is cancellation, including when the graphics viewer fails.
+        """
+        if shutil.which("yad") is None:
+            return None
+        with tempfile.TemporaryDirectory(prefix="manual-duplex-guide-") as tmp:
+            image = Path(tmp) / "guide.svg"
+            image.write_text(svg_content, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    "yad",
+                    "--picture",
+                    f"--filename={image}",
+                    "--size=fit",
+                    "--width=1030",
+                    "--height=800",
+                    "--center",
+                    f"--title={title}",
+                    "--button=Cancelar:1",
+                    f"--button={ok_label}:0",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            return result.returncode == 0
+
     def confirm_layout_preview(
         self,
         source: Path,
@@ -265,6 +303,22 @@ class Zenity:
         page_count: int,
         pass_order: PassOrder,
     ) -> bool:
+        diagram = print_plan_svg(
+            source_name=source.name,
+            printer=printer,
+            page_count=page_count,
+            pages_per_side=int(form["pages_per_side"]),
+            orientation=form["orientation"],
+            pass_order=pass_order,
+        )
+        illustrated = self._illustrated_question(
+            diagram,
+            title="Vista del plan de impresión",
+            ok_label="Se ve bien, imprimir",
+        )
+        if illustrated is not None:
+            return illustrated
+
         text = (
             print_summary_text(source, printer, form)
             + "\n\n"
@@ -324,6 +378,14 @@ class Zenity:
                 ok_label="Continuar impresión",
                 cancel_label="Cancelar",
             )
+
+        illustrated = self._illustrated_question(
+            refeed_svg(profile, sheet_count),
+            title="Cómo reinsertar el papel",
+            ok_label="Ya coloqué las hojas, continuar",
+        )
+        if illustrated is not None:
+            return illustrated
 
         result = self._run(
             (
