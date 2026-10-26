@@ -12,10 +12,12 @@ from .desktop import install_desktop_entry
 from .errors import CommandError, ConfigurationError, ManualDuplexError
 from .models import (
     BackOrder,
+    FeedEdge,
     LayoutSettings,
     Orientation,
     Paper,
     PassOrder,
+    PrintedFace,
     PrinterProfile,
     PrintSettings,
     Quality,
@@ -289,21 +291,19 @@ def _cmd_gui(args: argparse.Namespace) -> int:
         if profile is None:
             return 0
 
-    if int(form["pages_per_side"]) > 1:
-        try:
-            page_count = logical_page_count(source)
-        except ManualDuplexError as exc:
-            ui.print_error(str(exc))
-            return 2
-        if not ui.confirm_layout_preview(
-            source,
-            printer,
-            form,
-            page_count,
-            profile.pass_order,
-        ):
-            return 0
-    elif not ui.confirm_print(source, printer, form):
+    try:
+        page_count = logical_page_count(source)
+    except ManualDuplexError as exc:
+        ui.print_error(str(exc))
+        return 2
+
+    if not ui.confirm_layout_preview(
+        source,
+        printer,
+        form,
+        page_count,
+        profile.pass_order,
+    ):
         return 0
 
     settings = PrintSettings(
@@ -324,7 +324,9 @@ def _cmd_gui(args: argparse.Namespace) -> int:
             profile=profile,
             cups=cups,
             preview=ui.preview if form["preview"] == "yes" else None,
-            confirm_refeed=ui.confirm_refeed,
+            confirm_refeed=lambda instruction, sheets: ui.confirm_refeed(
+                instruction, sheets, profile=profile
+            ),
         )
     except ManualDuplexError as exc:
         ui.print_error(str(exc))
@@ -373,6 +375,8 @@ def _configure_profile_gui(ui: Zenity, printer: str) -> PrinterProfile | None:
             pass_order=PassOrder(str(calibration["pass_order"])),
             back_rotation=int(calibration["back_rotation"]),
             refeed_instruction=str(calibration["refeed_instruction"]),
+            printed_face=PrintedFace(str(calibration["printed_face"])),
+            feed_edge=FeedEdge(str(calibration["feed_edge"])),
         )
         save_profile(profile)
         ui.info(
@@ -451,6 +455,8 @@ def _profile_for_print(
         pass_order=resolved_pass_order,
         back_rotation=resolved_rotation,
         refeed_instruction=instruction,
+        printed_face=saved.printed_face if saved is not None else None,
+        feed_edge=saved.feed_edge if saved is not None else None,
     )
 
 

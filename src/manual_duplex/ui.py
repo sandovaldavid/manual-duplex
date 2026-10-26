@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from .errors import CommandError
-from .models import PassOrder, Quality
+from .illustrations import print_plan_svg, refeed_svg
+from .models import PassOrder, PrinterProfile, Quality
+from .refeed import build_refeed_instruction, refeed_guide_text
 
 _PRINT_ACTION = "Imprimir un PDF"
 _CONFIGURE_ACTION = "Configurar impresora"
@@ -256,20 +259,41 @@ class Zenity:
             cancel_label="Cancelar",
         )
 
-    def confirm_print(
-        self,
-        source: Path,
-        printer: str,
-        form: Mapping[str, str],
-    ) -> bool:
-        return self.question(
-            "Revisar impresión",
-            print_summary_text(source, printer, form)
-            + "\n\nLa impresión a doble cara se realiza en dos pasadas. "
-            "La aplicación te avisará exactamente cuándo volver a colocar las hojas.",
-            ok_label="Empezar impresión",
-            cancel_label="Cancelar",
-        )
+    @staticmethod
+    def _illustrated_question(
+        svg_content: str,
+        *,
+        title: str,
+        ok_label: str,
+    ) -> bool | None:
+        """Use YAD's native picture dialog, or return None for Zenity fallback.
+
+        Only the button with exit code 0 grants printing consent. A non-zero
+        result is cancellation, including when the graphics viewer fails.
+        """
+        if shutil.which("yad") is None:
+            return None
+        with tempfile.TemporaryDirectory(prefix="manual-duplex-guide-") as tmp:
+            image = Path(tmp) / "guide.svg"
+            image.write_text(svg_content, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    "yad",
+                    "--picture",
+                    f"--filename={image}",
+                    "--size=fit",
+                    "--width=1030",
+                    "--height=800",
+                    "--center",
+                    f"--title={title}",
+                    "--button=Cancelar:1",
+                    f"--button={ok_label}:0",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            return result.returncode == 0
 
     def confirm_layout_preview(
         self,
@@ -279,6 +303,22 @@ class Zenity:
         page_count: int,
         pass_order: PassOrder,
     ) -> bool:
+        diagram = print_plan_svg(
+            source_name=source.name,
+            printer=printer,
+            page_count=page_count,
+            pages_per_side=int(form["pages_per_side"]),
+            orientation=form["orientation"],
+            pass_order=pass_order,
+        )
+        illustrated = self._illustrated_question(
+            diagram,
+            title="Vista del plan de impresión",
+            ok_label="Se ve bien, imprimir",
+        )
+        if illustrated is not None:
+            return illustrated
+
         text = (
             print_summary_text(source, printer, form)
             + "\n\n"
@@ -298,7 +338,7 @@ class Zenity:
                 "--width=760",
                 "--height=620",
                 "--ok-label=Se ve bien, imprimir",
-                "--cancel-label=Volver",
+                "--cancel-label=Cancelar",
             ),
             check=False,
             input_text=text,
@@ -323,18 +363,45 @@ class Zenity:
             cancel_label="Cancelar",
         )
 
-    def confirm_refeed(self, instruction: str, sheet_count: int) -> bool:
-        return self.question(
-            "Volver a colocar las hojas",
-            f"La primera pasada terminó ({sheet_count} hoja(s)).\n\n"
-            "1. Espera a que hayan salido todas las hojas.\n"
-            "2. Mantén el bloque en el mismo orden; no reordenes hojas individualmente.\n"
-            f"3. {instruction}\n"
-            "4. Ajusta las guías de la bandeja sin doblar ni apretar el papel.\n\n"
-            "Cuando el bloque esté listo, continúa con la segunda pasada.",
-            ok_label="Continuar impresión",
-            cancel_label="Cancelar",
+    def confirm_refeed(
+        self,
+        instruction: str,
+        sheet_count: int,
+        *,
+        profile: PrinterProfile | None = None,
+    ) -> bool:
+        if profile is None:
+            return self.question(
+                "Volver a colocar las hojas",
+                f"La primera pasada terminó ({sheet_count} hoja(s)).\n\n"
+                f"{instruction}\n\nConfirma solo después de colocar el bloque.",
+                ok_label="Continuar impresión",
+                cancel_label="Cancelar",
+            )
+
+        illustrated = self._illustrated_question(
+            refeed_svg(profile, sheet_count),
+            title="Cómo reinsertar el papel",
+            ok_label="Ya coloqué las hojas, continuar",
         )
+        if illustrated is not None:
+            return illustrated
+
+        result = self._run(
+            (
+                "zenity",
+                "--text-info",
+                "--title=Cómo reinsertar el papel",
+                "--font=monospace 11",
+                "--width=760",
+                "--height=590",
+                "--ok-label=Ya coloqué las hojas, continuar",
+                "--cancel-label=Cancelar",
+            ),
+            check=False,
+            input_text=refeed_guide_text(profile, sheet_count),
+        )
+        return result.returncode == 0
 
     def help_menu(self) -> None:
         topics = tuple(_HELP_TOPICS)
@@ -485,21 +552,11 @@ def parse_calibration_form(values: Sequence[str]) -> dict[str, str | int]:
             "back_order": _ORDER_LABELS[order],
             "back_rotation": _ROTATION_LABELS[rotation],
             "refeed_instruction": build_refeed_instruction(face_value, edge_value),
+            "printed_face": face_value,
+            "feed_edge": edge_value,
         }
     except KeyError as exc:
         raise CommandError("La calibración contiene un valor no reconocido.") from exc
-
-
-def build_refeed_instruction(face: str, edge: str) -> str:
-    face_text = {
-        "up": "la cara ya impresa hacia arriba",
-        "down": "la cara ya impresa hacia abajo",
-    }[face]
-    edge_text = {
-        "top": "el borde superior entrando primero",
-        "bottom": "el borde inferior entrando primero",
-    }[edge]
-    return f"Coloca el bloque con {face_text} y {edge_text}."
 
 
 def print_summary_text(
@@ -529,8 +586,8 @@ def layout_preview_text(
 ) -> str:
     if page_count <= 0:
         raise ValueError("page_count must be greater than zero")
-    if pages_per_side not in (2, 4):
-        raise ValueError("schematic preview supports only 2-up or 4-up")
+    if pages_per_side not in (1, 2, 4):
+        raise ValueError("schematic preview supports only 1-up, 2-up or 4-up")
     if orientation not in {"portrait", "landscape"}:
         raise ValueError("orientation must be portrait or landscape")
     if max_sheets <= 0:
@@ -538,24 +595,37 @@ def layout_preview_text(
 
     pages_per_sheet = pages_per_side * 2
     sheet_count = (page_count + pages_per_sheet - 1) // pages_per_sheet
-    first_pass = (
-        "reversos"
-        if pass_order is PassOrder.BACKS_FIRST
-        else "caras delanteras"
-    )
-    second_pass = (
-        "caras delanteras"
-        if pass_order is PassOrder.BACKS_FIRST
-        else "reversos"
-    )
+    physical_sides = (page_count + pages_per_side - 1) // pages_per_side
+    # With only one physical side, the print engine sends one job regardless
+    # of the calibrated duplex pass order.
+    if physical_sides == 1:
+        pass_description = [
+            "Una sola pasada: únicamente la cara delantera.",
+            "No será necesario volver a colocar las hojas.",
+        ]
+    else:
+        first_pass = (
+            "reversos"
+            if pass_order is PassOrder.BACKS_FIRST
+            else "caras delanteras"
+        )
+        second_pass = (
+            "caras delanteras"
+            if pass_order is PassOrder.BACKS_FIRST
+            else "reversos"
+        )
+        pass_description = [
+            f"Primera pasada: {first_pass}.",
+            f"Segunda pasada: {second_pass}.",
+        ]
 
     lines = [
-        "VISTA ESQUEMÁTICA",
-        "No muestra el contenido real del PDF; muestra dónde quedará cada página.",
+        "VISTA ESQUEMÁTICA ANTES DE IMPRIMIR",
+        "Muestra la distribución lógica de las páginas, no el contenido real del PDF.",
+        "Frente y reverso se muestran como se leen, sin simular el volteo físico.",
         "",
         f"Total: {page_count} página(s) lógica(s) en {sheet_count} hoja(s) física(s).",
-        f"Primera pasada: {first_pass}.",
-        f"Segunda pasada: {second_pass}.",
+        *pass_description,
         "",
     ]
 
@@ -582,10 +652,11 @@ def layout_preview_text(
             f"... y {remaining} hoja(s) más. El mismo patrón continúa hasta el final."
         )
 
-    lines.append(
-        "Durante la reinserción mantén el bloque completo en el mismo orden; "
-        "no voltees hojas individualmente."
-    )
+    if physical_sides > 1:
+        lines.append(
+            "Después de la primera pasada se mostrará la guía física de reinserción. "
+            "Mantén el bloque completo en el mismo orden."
+        )
     return "\n".join(lines)
 
 
@@ -606,6 +677,12 @@ def _side_preview(
     orientation: str,
 ) -> list[str]:
     cells = [_preview_cell(page) for page in pages]
+    if pages_per_side == 1:
+        return [
+            "┌─────────┐",
+            f"│{cells[0]}│",
+            "└─────────┘",
+        ]
     if pages_per_side == 2 and orientation == "portrait":
         return [
             "┌─────────┐",
